@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: auctions-postgres
+    environment:
+      POSTGRES_DB: auctions
+      POSTGRES_USER: auctions
+      POSTGRES_PASSWORD: auctions
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: auctions-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: auctions
+      RABBITMQ_DEFAULT_PASS: auctions
+
+volumes:
+  pgdata:
