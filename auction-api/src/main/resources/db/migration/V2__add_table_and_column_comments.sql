@@ -1,0 +1,40 @@
+comment on table users is 'Registered platform users that can create auctions and place bids.';
+comment on column users.id is 'Primary key of the user generated from the users_seq sequence.';
+comment on column users.email is 'Unique email address used as the user login identifier.';
+comment on column users.password_hash is 'Password hash stored for authentication.';
+comment on column users.role is 'Application role assigned to the user, for example ADMIN or BIDDER.';
+comment on column users.created_at is 'Timestamp when the user record was created.';
+
+comment on table auctions is 'Auction aggregate root that stores listing, scheduling and pricing state.';
+comment on column auctions.id is 'Primary key of the auction generated from the auctions_seq sequence.';
+comment on column auctions.title is 'Short title shown to users for the auction listing.';
+comment on column auctions.description is 'Detailed textual description of the auctioned item.';
+comment on column auctions.start_price is 'Initial auction price configured by the seller.';
+comment on column auctions.current_price is 'Current highest visible price of the auction.';
+comment on column auctions.min_increment is 'Minimum amount by which a new bid must exceed the current price.';
+comment on column auctions.status is 'Lifecycle status of the auction, such as DRAFT, ACTIVE or CLOSED.';
+comment on column auctions.start_time is 'Timestamp when the auction becomes active for bidding.';
+comment on column auctions.end_time is 'Timestamp when the auction is scheduled to end.';
+comment on column auctions.anti_sniping_window_sec is 'Time window in seconds before the end when an incoming bid can trigger an extension.';
+comment on column auctions.anti_sniping_extend_sec is 'Extension duration in seconds applied when anti-sniping is triggered.';
+comment on column auctions.created_by is 'Identifier of the user who created the auction.';
+comment on column auctions.version is 'Optimistic locking version used to prevent lost updates.';
+comment on column auctions.created_at is 'Timestamp when the auction record was created.';
+comment on column auctions.updated_at is 'Timestamp when the auction record was last updated.';
+
+comment on table bids is 'Immutable bid history for auctions.';
+comment on column bids.id is 'Primary key of the bid generated from the bids_seq sequence.';
+comment on column bids.auction_id is 'Identifier of the auction on which the bid was placed.';
+comment on column bids.bidder_id is 'Identifier of the user who placed the bid.';
+comment on column bids.amount is 'Bid amount offered by the bidder.';
+comment on column bids.created_at is 'Timestamp when the bid was created.';
+
+comment on table outbox_events is 'Transactional outbox entries waiting to be published to external systems.';
+comment on column outbox_events.id is 'Primary key of the outbox event generated from the outbox_events_seq sequence.';
+comment on column outbox_events.aggregate_type is 'Aggregate category that produced the event, for example AUCTION.';
+comment on column outbox_events.aggregate_id is 'Identifier of the aggregate instance that produced the event.';
+comment on column outbox_events.event_type is 'Domain event type that should be published.';
+comment on column outbox_events.payload is 'Serialized event payload stored as JSONB.';
+comment on column outbox_events.status is 'Publication status of the outbox event.';
+comment on column outbox_events.created_at is 'Timestamp when the outbox entry was created.';
+comment on column outbox_events.published_at is 'Timestamp when the outbox entry was successfully published.';
