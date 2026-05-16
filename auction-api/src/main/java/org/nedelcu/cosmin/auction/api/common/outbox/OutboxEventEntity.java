@@ -27,13 +27,15 @@ public class OutboxEventEntity {
     private Long id;
 
     @Column(name = "aggregate_type", nullable = false)
-    private String aggregateType;
+    @Enumerated(EnumType.STRING)
+    private OutboxAggregateType aggregateType;
 
     @Column(name = "aggregate_id", nullable = false)
     private Long aggregateId;
 
     @Column(name = "event_type", nullable = false)
-    private String eventType;
+    @Enumerated(EnumType.STRING)
+    private AuctionEventType eventType;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")

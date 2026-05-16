@@ -13,7 +13,12 @@ public class OutboxService {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
-    public void saveEvent(String aggregateType, Long aggregateId, String eventType, Object payload) {
+    public void saveEvent(
+            OutboxAggregateType aggregateType,
+            Long aggregateId,
+            AuctionEventType eventType,
+            Object payload
+    ) {
         try {
             OutboxEventEntity event = new OutboxEventEntity();
             event.setAggregateType(aggregateType);

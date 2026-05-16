@@ -16,6 +16,8 @@ import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.exception.BusinessException;
 import org.nedelcu.cosmin.auction.api.common.exception.ResourceNotFoundException;
+import org.nedelcu.cosmin.auction.api.common.outbox.AuctionEventType;
+import org.nedelcu.cosmin.auction.api.common.outbox.OutboxAggregateType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -103,9 +105,9 @@ public class AuctionService {
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
         outboxService.saveEvent(
-                "AUCTION",
+                OutboxAggregateType.AUCTION,
                 id,
-                "AUCTION_CLOSED",
+                AuctionEventType.AUCTION_CLOSED,
                 new AuctionClosedEvent(
                         id,
                         savedAuction.getCurrentPrice(),
@@ -147,9 +149,9 @@ public class AuctionService {
         AuctionEntity savedAuction = auctionRepository.saveAndFlush(auction);
         BidEntity savedBid = bidRepository.save(bid);
         outboxService.saveEvent(
-                "AUCTION",
+                OutboxAggregateType.AUCTION,
                 auctionId,
-                "BID_PLACED",
+                AuctionEventType.BID_PLACED,
                 new BidPlacedEvent(
                         auctionId,
                         savedBid.getId(),
