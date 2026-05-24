@@ -1,9 +1,12 @@
 package org.nedelcu.cosmin.auction.api.auction.service;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.nedelcu.cosmin.auction.api.auction.event.AuctionClosedEvent;
+import org.nedelcu.cosmin.auction.api.auction.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.api.auction.event.AuctionRealtimeEvent;
 import org.nedelcu.cosmin.auction.api.auction.event.BidPlacedEvent;
 import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
@@ -19,9 +22,9 @@ import org.nedelcu.cosmin.auction.api.common.exception.ResourceNotFoundException
 import org.nedelcu.cosmin.auction.api.common.outbox.AuctionEventType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxAggregateType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
+import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +33,7 @@ public class AuctionService {
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
     private final OutboxService outboxService;
+    private final AuctionEventBroadcaster auctionEventBroadcaster;
 
     public List<AuctionResponse> findAll() {
         return auctionRepository.findAll().stream()
@@ -104,22 +108,19 @@ public class AuctionService {
         auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
-        outboxService.saveEvent(
-                OutboxAggregateType.AUCTION,
+        AuctionClosedEvent auctionClosedEvent = new AuctionClosedEvent(
                 id,
-                AuctionEventType.AUCTION_CLOSED,
-                new AuctionClosedEvent(
-                        id,
-                        savedAuction.getCurrentPrice(),
-                        now
-                )
+                savedAuction.getCurrentPrice(),
+                now
         );
+
+        publishAuctionEvent(id, AuctionEventType.AUCTION_CLOSED, auctionClosedEvent, now);
         return toResponse(savedAuction);
     }
 
     @Transactional
     public BidResponse placeBid(Long auctionId, PlaceBidRequest request) {
-        AuctionEntity auction = auctionRepository.findById(auctionId)
+        AuctionEntity auction = auctionRepository.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + auctionId));
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -144,23 +145,33 @@ public class AuctionService {
         bid.setCreatedAt(now);
 
         auction.setCurrentPrice(request.amount());
+        boolean auctionExtended = shouldExtendAuction(auction, now);
+        if (auctionExtended) {
+            auction.setEndTime(auction.getEndTime().plusSeconds(auction.getAntiSnipingExtendSec()));
+        }
         auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.saveAndFlush(auction);
         BidEntity savedBid = bidRepository.save(bid);
-        outboxService.saveEvent(
-                OutboxAggregateType.AUCTION,
+
+        BidPlacedEvent bidPlacedEvent = new BidPlacedEvent(
                 auctionId,
-                AuctionEventType.BID_PLACED,
-                new BidPlacedEvent(
-                        auctionId,
-                        savedBid.getId(),
-                        savedBid.getBidderId(),
-                        savedBid.getAmount(),
-                        savedAuction.getCurrentPrice(),
-                        now
-                )
+                savedBid.getId(),
+                savedBid.getBidderId(),
+                savedBid.getAmount(),
+                savedAuction.getCurrentPrice(),
+                now
         );
+        publishAuctionEvent(auctionId, AuctionEventType.BID_PLACED, bidPlacedEvent, now);
+
+        if (auctionExtended) {
+            AuctionExtendedEvent auctionExtendedEvent = new AuctionExtendedEvent(
+                    auctionId,
+                    savedAuction.getEndTime(),
+                    now
+            );
+            publishAuctionEvent(auctionId, AuctionEventType.AUCTION_EXTENDED, auctionExtendedEvent, now);
+        }
 
         return toBidResponse(savedBid);
     }
@@ -200,6 +211,39 @@ public class AuctionService {
                 bid.getBidderId(),
                 bid.getAmount(),
                 bid.getCreatedAt()
+        );
+    }
+
+    private boolean shouldExtendAuction(AuctionEntity auction, OffsetDateTime now) {
+        if (auction.getEndTime() == null
+                || auction.getAntiSnipingWindowSec() == null
+                || auction.getAntiSnipingExtendSec() == null) {
+            return false;
+        }
+
+        OffsetDateTime extensionThreshold = auction.getEndTime().minusSeconds(auction.getAntiSnipingWindowSec());
+        return !now.isBefore(extensionThreshold);
+    }
+
+    private void publishAuctionEvent(
+            Long auctionId,
+            AuctionEventType eventType,
+            Object payload,
+            OffsetDateTime occurredAt
+    ) {
+        outboxService.saveEvent(
+                OutboxAggregateType.AUCTION,
+                auctionId,
+                eventType,
+                payload
+        );
+        auctionEventBroadcaster.broadcastToAuction(
+                auctionId,
+                new AuctionRealtimeEvent<>(
+                        eventType.name(),
+                        payload,
+                        occurredAt
+                )
         );
     }
 }
