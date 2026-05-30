@@ -46,6 +46,12 @@ public class OutboxEventEntity {
     @Column(nullable = false)
     private OutboxEventStatus status;
 
+    @Column(name = "retry_count", nullable = false)
+    private Integer retryCount;
+
+    @Column(name = "last_error")
+    private String lastError;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 

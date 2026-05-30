@@ -36,8 +36,18 @@ public class OutboxPublisher {
 
                 event.setStatus(OutboxEventStatus.PUBLISHED);
                 event.setPublishedAt(OffsetDateTime.now());
+                event.setLastError(null);
             } catch (Exception ex) {
-                event.setStatus(OutboxEventStatus.FAILED);
+                int retries = event.getRetryCount() == null ? 1 : event.getRetryCount() + 1;
+                event.setRetryCount(retries);
+                event.setLastError(ex.getMessage());
+                event.setPublishedAt(null);
+
+                if (retries >= 3) {
+                    event.setStatus(OutboxEventStatus.FAILED);
+                } else {
+                    event.setStatus(OutboxEventStatus.NEW);
+                }
             }
         }
     }

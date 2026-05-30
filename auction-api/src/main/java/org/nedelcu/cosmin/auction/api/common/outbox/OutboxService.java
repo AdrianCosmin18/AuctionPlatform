@@ -27,6 +27,8 @@ public class OutboxService {
             event.setEventType(eventType);
             event.setPayload(objectMapper.writeValueAsString(payload));
             event.setStatus(OutboxEventStatus.NEW);
+            event.setRetryCount(0);
+            event.setLastError(null);
             event.setCreatedAt(OffsetDateTime.now());
 
             outboxEventRepository.save(event);
