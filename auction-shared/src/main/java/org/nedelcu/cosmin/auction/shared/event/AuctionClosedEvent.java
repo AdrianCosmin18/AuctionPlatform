@@ -1,4 +1,4 @@
-package org.nedelcu.cosmin.auction.api.auction.event;
+package org.nedelcu.cosmin.auction.shared.event;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;

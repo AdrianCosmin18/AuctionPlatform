@@ -21,16 +21,16 @@ import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
-import org.nedelcu.cosmin.auction.api.auction.event.AuctionClosedEvent;
-import org.nedelcu.cosmin.auction.api.auction.event.AuctionExtendedEvent;
 import org.nedelcu.cosmin.auction.api.auction.event.AuctionRealtimeEvent;
-import org.nedelcu.cosmin.auction.api.auction.event.BidPlacedEvent;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
-import org.nedelcu.cosmin.auction.api.common.outbox.AuctionEventType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
+import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
+import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 
 @ExtendWith(MockitoExtension.class)
 class AuctionServiceTest {
@@ -78,6 +78,8 @@ class AuctionServiceTest {
         );
 
         assertThat(response.id()).isEqualTo(55L);
+        assertThat(response.auctionExtended()).isTrue();
+        assertThat(response.newEndTime()).isEqualTo(initialEndTime.plusSeconds(30));
         assertThat(auction.getCurrentPrice()).isEqualByComparingTo("125.00");
         assertThat(auction.getEndTime()).isEqualTo(initialEndTime.plusSeconds(30));
 

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
+import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.springframework.stereotype.Service;
 
 @Service

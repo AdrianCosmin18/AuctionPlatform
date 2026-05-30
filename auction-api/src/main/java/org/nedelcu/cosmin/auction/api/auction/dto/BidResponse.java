@@ -8,6 +8,8 @@ public record BidResponse(
         Long auctionId,
         Long bidderId,
         BigDecimal amount,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        boolean auctionExtended,
+        OffsetDateTime newEndTime
 ) {
 }

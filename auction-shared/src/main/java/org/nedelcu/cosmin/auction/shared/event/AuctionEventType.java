@@ -1,4 +1,4 @@
-package org.nedelcu.cosmin.auction.api.common.outbox;
+package org.nedelcu.cosmin.auction.shared.event;
 
 public enum AuctionEventType {
     BID_PLACED,

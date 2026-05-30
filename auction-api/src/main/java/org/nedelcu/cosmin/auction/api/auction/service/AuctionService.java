@@ -4,10 +4,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.nedelcu.cosmin.auction.api.auction.event.AuctionClosedEvent;
-import org.nedelcu.cosmin.auction.api.auction.event.AuctionExtendedEvent;
 import org.nedelcu.cosmin.auction.api.auction.event.AuctionRealtimeEvent;
-import org.nedelcu.cosmin.auction.api.auction.event.BidPlacedEvent;
 import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest;
@@ -19,10 +16,13 @@ import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.exception.BusinessException;
 import org.nedelcu.cosmin.auction.api.common.exception.ResourceNotFoundException;
-import org.nedelcu.cosmin.auction.api.common.outbox.AuctionEventType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxAggregateType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
+import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
+import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -173,7 +173,15 @@ public class AuctionService {
             publishAuctionEvent(auctionId, AuctionEventType.AUCTION_EXTENDED, auctionExtendedEvent, now);
         }
 
-        return toBidResponse(savedBid);
+        return new BidResponse(
+                savedBid.getId(),
+                savedBid.getAuctionId(),
+                savedBid.getBidderId(),
+                savedBid.getAmount(),
+                savedBid.getCreatedAt(),
+                auctionExtended,
+                savedAuction.getEndTime()
+        );
     }
 
     public List<BidResponse> findBids(Long auctionId) {
@@ -210,7 +218,9 @@ public class AuctionService {
                 bid.getAuctionId(),
                 bid.getBidderId(),
                 bid.getAmount(),
-                bid.getCreatedAt()
+                bid.getCreatedAt(),
+                false,
+                null
         );
     }
 

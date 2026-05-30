@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.Setter;
+import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
