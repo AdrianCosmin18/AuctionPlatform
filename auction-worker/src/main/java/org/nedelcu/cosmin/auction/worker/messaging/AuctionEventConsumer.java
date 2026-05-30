@@ -3,6 +3,7 @@ package org.nedelcu.cosmin.auction.worker.messaging;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.nedelcu.cosmin.auction.worker.audit.AuditService;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventEnvelope;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AuctionEventConsumer {
 
+    private final AuditService auditService;
     private final ObjectMapper objectMapper;
 
     @RabbitListener(queues = RabbitMqConfig.AUCTION_EVENTS_QUEUE)
@@ -25,16 +27,19 @@ public class AuctionEventConsumer {
         switch (AuctionEventType.valueOf(event.eventType())) {
             case BID_PLACED -> {
                 BidPlacedEvent payload = objectMapper.readValue(event.payload(), BidPlacedEvent.class);
+                auditService.save(event.eventType(), payload.auctionId(), event.payload());
                 log.info("Processing bid placed: auctionId={}, amount={}",
                         payload.auctionId(), payload.amount());
             }
             case AUCTION_EXTENDED -> {
                 AuctionExtendedEvent payload = objectMapper.readValue(event.payload(), AuctionExtendedEvent.class);
+                auditService.save(event.eventType(), payload.auctionId(), event.payload());
                 log.info("Processing auction extended: auctionId={}, newEndTime={}",
                         payload.auctionId(), payload.newEndTime());
             }
             case AUCTION_CLOSED -> {
                 AuctionClosedEvent payload = objectMapper.readValue(event.payload(), AuctionClosedEvent.class);
+                auditService.save(event.eventType(), payload.auctionId(), event.payload());
                 log.info("Processing auction closed: auctionId={}, finalPrice={}",
                         payload.auctionId(), payload.finalPrice());
             }
