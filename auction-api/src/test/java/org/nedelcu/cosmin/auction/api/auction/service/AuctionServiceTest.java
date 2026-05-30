@@ -122,6 +122,38 @@ class AuctionServiceTest {
         assertThat(realtimeEvent.payload()).isInstanceOf(AuctionClosedEvent.class);
     }
 
+    @Test
+    void closeExpiredAuctionPublishesClosedEventForExpiredRunningAuction() {
+        Long auctionId = 30L;
+        AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().minusSeconds(5), 30, 30);
+        auction.setCurrentPrice(new BigDecimal("415.00"));
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuctionResponse response = auctionService.closeExpiredAuction(auctionId);
+
+        assertThat(response.status()).isEqualTo(AuctionStatus.ENDED);
+        verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
+        assertThat(outboxPayloadCaptor.getValue()).isInstanceOf(AuctionClosedEvent.class);
+        verify(auctionEventBroadcaster).broadcastToAuction(any(), any(AuctionRealtimeEvent.class));
+    }
+
+    @Test
+    void closeExpiredAuctionReturnsRunningAuctionWhenItIsNotYetExpired() {
+        Long auctionId = 31L;
+        AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusMinutes(2), 30, 30);
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+
+        AuctionResponse response = auctionService.closeExpiredAuction(auctionId);
+
+        assertThat(response.status()).isEqualTo(AuctionStatus.RUNNING);
+        verify(auctionRepository, times(0)).save(any(AuctionEntity.class));
+        verify(outboxService, times(0)).saveEvent(any(), any(), any(), any());
+        verify(auctionEventBroadcaster, times(0)).broadcastToAuction(any(), any());
+    }
+
     private AuctionEntity runningAuction(
             Long id,
             OffsetDateTime endTime,

@@ -103,19 +103,25 @@ public class AuctionService {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
+        return closeAuction(auction, now);
+    }
 
-        auction.setStatus(AuctionStatus.ENDED);
-        auction.setUpdatedAt(now);
+    @Transactional
+    public AuctionResponse closeExpiredAuction(Long id) {
+        AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
-        AuctionEntity savedAuction = auctionRepository.save(auction);
-        AuctionClosedEvent auctionClosedEvent = new AuctionClosedEvent(
-                id,
-                savedAuction.getCurrentPrice(),
-                now
-        );
+        OffsetDateTime now = OffsetDateTime.now();
 
-        publishAuctionEvent(id, AuctionEventType.AUCTION_CLOSED, auctionClosedEvent, now);
-        return toResponse(savedAuction);
+        if (auction.getStatus() != AuctionStatus.RUNNING) {
+            return toResponse(auction);
+        }
+
+        if (auction.getEndTime() == null || auction.getEndTime().isAfter(now)) {
+            return toResponse(auction);
+        }
+
+        return closeAuction(auction, now);
     }
 
     @Transactional
@@ -233,6 +239,21 @@ public class AuctionService {
 
         OffsetDateTime extensionThreshold = auction.getEndTime().minusSeconds(auction.getAntiSnipingWindowSec());
         return !now.isBefore(extensionThreshold);
+    }
+
+    private AuctionResponse closeAuction(AuctionEntity auction, OffsetDateTime now) {
+        auction.setStatus(AuctionStatus.ENDED);
+        auction.setUpdatedAt(now);
+
+        AuctionEntity savedAuction = auctionRepository.save(auction);
+        AuctionClosedEvent auctionClosedEvent = new AuctionClosedEvent(
+                savedAuction.getId(),
+                savedAuction.getCurrentPrice(),
+                now
+        );
+
+        publishAuctionEvent(savedAuction.getId(), AuctionEventType.AUCTION_CLOSED, auctionClosedEvent, now);
+        return toResponse(savedAuction);
     }
 
     private void publishAuctionEvent(
