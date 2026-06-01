@@ -10,7 +10,7 @@ import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
-import { Subject, Subscription, finalize, takeUntil } from 'rxjs';
+import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil } from 'rxjs';
 import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionRealtimeEvent } from '../../core/models/auction-realtime-event.model';
@@ -46,50 +46,60 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   private readonly ws = inject(AuctionWsService);
   private readonly fb = inject(FormBuilder);
   private readonly destroy$ = new Subject<void>();
-
-  auction: Auction | null = null;
-  bids: Bid[] = [];
-  recentEvents: AuctionRealtimeEvent[] = [];
-  loading = false;
-  placingBid = false;
-  actionLoading = false;
-  errorMessage: string | null = null;
-  liveMessage: string | null = null;
+  private auctionId: number | null = null;
   private liveSubscription?: Subscription;
 
+  readonly auction$ = new BehaviorSubject<Auction | null>(null);
+  readonly bids$ = new BehaviorSubject<Bid[]>([]);
+  readonly recentEvents$ = new BehaviorSubject<AuctionRealtimeEvent<AuctionBusinessEvent>[]>([]);
+  readonly loading$ = new BehaviorSubject<boolean>(true);
+  readonly placingBid$ = new BehaviorSubject<boolean>(false);
+  readonly actionLoading$ = new BehaviorSubject<boolean>(false);
+  readonly error$ = new BehaviorSubject<string | null>(null);
+  readonly liveMessage$ = new BehaviorSubject<string | null>(null);
+  readonly vm$ = combineLatest({
+    auction: this.auction$,
+    bids: this.bids$,
+    recentEvents: this.recentEvents$,
+    loading: this.loading$,
+    placingBid: this.placingBid$,
+    actionLoading: this.actionLoading$,
+    error: this.error$,
+    liveMessage: this.liveMessage$
+  }).pipe(
+    map(({ auction, bids, recentEvents, loading, placingBid, actionLoading, error, liveMessage }) => ({
+      auction,
+      bids,
+      recentEvents,
+      loading,
+      placingBid,
+      actionLoading,
+      error,
+      liveMessage,
+      bidCount: bids.length,
+      nextMinimumBid: auction ? Number(auction.currentPrice) + Number(auction.minIncrement) : null,
+      lastBidderId: bids[0]?.bidderId ?? null,
+      canPlaceBid: auction?.status === 'RUNNING'
+    }))
+  );
+
   readonly bidForm = this.fb.nonNullable.group({
-    bidderId: [2, [Validators.required, Validators.min(1)]],
     amount: [0, [Validators.required, Validators.min(0.01)]]
   });
-
-  get bidCount(): number {
-    return this.bids.length;
-  }
-
-  get nextMinimumBid(): number | null {
-    if (!this.auction) {
-      return null;
-    }
-
-    return Number(this.auction.currentPrice) + Number(this.auction.minIncrement);
-  }
-
-  get lastBidderId(): number | null {
-    return this.bids[0]?.bidderId ?? null;
-  }
 
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       const id = Number(params.get('id'));
 
       if (!Number.isFinite(id) || id <= 0) {
-        this.errorMessage = 'ID-ul licitatiei este invalid.';
+        this.error$.next('ID-ul licitatiei este invalid.');
         return;
       }
 
+      this.auctionId = id;
+      this.resetState();
       this.connectToAuction(id);
-      this.loadAuction(id);
-      this.loadBids(id);
+      this.loadSnapshot(id);
     });
   }
 
@@ -99,100 +109,82 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  loadAuction(auctionId: number): void {
-    this.loading = true;
-    this.errorMessage = null;
-
-    this.api
-      .getAuction(auctionId)
-      .pipe(finalize(() => (this.loading = false)))
-      .subscribe({
-        next: (auction) => {
-          this.auction = auction;
-          this.syncBidDefaultAmount();
-        },
-        error: (error) => {
-          this.errorMessage = error?.error?.detail ?? 'Nu am putut incarca licitatia.';
-        }
-      });
-  }
-
-  loadBids(auctionId: number): void {
-    this.api.getBids(auctionId).subscribe({
-      next: (bids) => {
-        this.bids = bids;
-      },
-      error: (error) => {
-        this.errorMessage = error?.error?.detail ?? 'Nu am putut incarca bid-urile.';
-      }
-    });
-  }
-
-  startAuction(): void {
-    if (!this.auction) {
+  refreshSnapshot(): void {
+    if (!this.auctionId) {
       return;
     }
 
-    this.actionLoading = true;
+    this.loadSnapshot(this.auctionId);
+  }
+
+  startAuction(): void {
+    const auction = this.auction$.value;
+
+    if (!auction) {
+      return;
+    }
+
+    this.actionLoading$.next(true);
+    this.error$.next(null);
     this.api
-      .startAuction(this.auction.id)
-      .pipe(finalize(() => (this.actionLoading = false)))
+      .startAuction(auction.id)
+      .pipe(finalize(() => this.actionLoading$.next(false)))
       .subscribe({
-        next: (auction) => (this.auction = auction),
+        next: (updatedAuction) => {
+          this.auction$.next(updatedAuction);
+          this.syncBidDefaultAmount();
+        },
         error: (error) => {
-          this.errorMessage = error?.error?.detail ?? 'Pornirea licitatiei a esuat.';
+          this.error$.next(error?.error?.detail ?? 'Pornirea licitatiei a esuat.');
         }
       });
   }
 
   closeAuction(): void {
-    if (!this.auction) {
+    const auction = this.auction$.value;
+
+    if (!auction) {
       return;
     }
 
-    this.actionLoading = true;
+    this.actionLoading$.next(true);
+    this.error$.next(null);
     this.api
-      .closeAuction(this.auction.id)
-      .pipe(finalize(() => (this.actionLoading = false)))
+      .closeAuction(auction.id)
+      .pipe(finalize(() => this.actionLoading$.next(false)))
       .subscribe({
-        next: (auction) => (this.auction = auction),
+        next: (updatedAuction) => {
+          this.auction$.next(updatedAuction);
+        },
         error: (error) => {
-          this.errorMessage = error?.error?.detail ?? 'Inchiderea licitatiei a esuat.';
+          this.error$.next(error?.error?.detail ?? 'Inchiderea licitatiei a esuat.');
         }
       });
   }
 
   placeBid(): void {
-    if (!this.auction || this.bidForm.invalid) {
+    const auction = this.auction$.value;
+
+    if (!auction || this.bidForm.invalid) {
       this.bidForm.markAllAsTouched();
       return;
     }
 
-    const { bidderId, amount } = this.bidForm.getRawValue();
-    this.placingBid = true;
-    this.liveMessage = null;
+    const { amount } = this.bidForm.getRawValue();
+    this.placingBid$.next(true);
+    this.error$.next(null);
+    this.liveMessage$.next(null);
 
     this.api
-      .placeBid(this.auction.id, { bidderId, amount })
-      .pipe(finalize(() => (this.placingBid = false)))
+      .placeBid(auction.id, { bidderId: 2, amount })
+      .pipe(finalize(() => this.placingBid$.next(false)))
       .subscribe({
-        next: (bid) => {
-          this.bids = [bid, ...this.bids];
-          if (this.auction) {
-            this.auction = {
-              ...this.auction,
-              currentPrice: bid.amount,
-              endTime: bid.newEndTime ?? this.auction.endTime
-            };
-          }
-
-          this.liveMessage = bid.auctionExtended
-            ? 'Bid acceptat. Licitatia a fost extinsa automat.'
-            : 'Bid acceptat.';
-          this.syncBidDefaultAmount();
+        next: () => {
+          this.bidForm.reset({ amount }, { emitEvent: false });
+          this.liveMessage$.next('Bid trimis. Astept confirmarea live.');
         },
         error: (error) => {
-          this.errorMessage = error?.error?.detail ?? 'Bid-ul nu a putut fi plasat.';
+          this.error$.next(error?.error?.detail ?? 'Bid-ul nu a putut fi plasat.');
         }
       });
   }
@@ -249,53 +241,112 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   }
 
   private connectToAuction(auctionId: number): void {
-    this.recentEvents = [];
+    this.recentEvents$.next([]);
     this.liveSubscription?.unsubscribe();
     this.liveSubscription = this.ws
       .watchAuction(auctionId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (event) => {
-          this.recentEvents = [event, ...this.recentEvents].slice(0, 10);
+          this.recentEvents$.next([event, ...this.recentEvents$.value].slice(0, 10));
           this.handleRealtimeEvent(event);
         },
         error: () => {
-          this.errorMessage = 'Conexiunea live pentru licitatie a fost intrerupta.';
+          this.error$.next('Conexiunea live pentru licitatie a fost intrerupta.');
         }
       });
   }
 
   private handleRealtimeEvent(event: AuctionRealtimeEvent<AuctionBusinessEvent>): void {
-    if (!this.auction) {
+    const auction = this.auction$.value;
+
+    if (!auction) {
       return;
     }
 
     switch (event.type) {
       case 'BID_PLACED': {
         const payload = event.payload as BidPlacedEvent;
-        this.auction = { ...this.auction, currentPrice: payload.currentPrice };
-        this.loadBids(this.auction.id);
+        const nextBid: Bid = {
+          id: payload.bidId,
+          auctionId: payload.auctionId,
+          bidderId: payload.bidderId,
+          amount: payload.amount,
+          createdAt: event.occurredAt,
+          auctionExtended: false,
+          newEndTime: null
+        };
+
+        this.auction$.next({ ...auction, currentPrice: payload.currentPrice });
+        this.bids$.next([nextBid, ...this.bids$.value.filter((bid) => bid.id !== nextBid.id)]);
+        this.liveMessage$.next(`Bid nou primit pentru licitatia #${payload.auctionId}.`);
         this.syncBidDefaultAmount();
         break;
       }
       case 'AUCTION_EXTENDED': {
         const payload = event.payload as AuctionExtendedEvent;
-        this.auction = { ...this.auction, endTime: payload.newEndTime };
+        this.auction$.next({ ...auction, endTime: payload.newEndTime });
+        this.bids$.next(
+          this.bids$.value.map((bid, index) =>
+            index === 0 ? { ...bid, auctionExtended: true, newEndTime: payload.newEndTime } : bid
+          )
+        );
+        this.liveMessage$.next('Licitatia a fost extinsa automat.');
         break;
       }
       case 'AUCTION_CLOSED': {
-        this.loadAuction(this.auction.id);
+        const payload = event.payload as AuctionClosedEvent;
+        this.auction$.next({
+          ...auction,
+          currentPrice: payload.finalPrice,
+          status: 'ENDED'
+        });
+        this.liveMessage$.next('Licitatia s-a incheiat.');
         break;
       }
     }
   }
 
   private syncBidDefaultAmount(): void {
-    if (!this.auction) {
+    const auction = this.auction$.value;
+
+    if (!auction) {
       return;
     }
 
-    const nextAmount = Number(this.auction.currentPrice) + Number(this.auction.minIncrement);
+    const nextAmount = Number(auction.currentPrice) + Number(auction.minIncrement);
     this.bidForm.patchValue({ amount: nextAmount }, { emitEvent: false });
+  }
+
+  private loadSnapshot(auctionId: number): void {
+    this.loading$.next(true);
+    this.error$.next(null);
+
+    forkJoin({
+      auction: this.api.getAuction(auctionId),
+      bids: this.api.getBids(auctionId)
+    })
+      .pipe(finalize(() => this.loading$.next(false)))
+      .subscribe({
+        next: ({ auction, bids }) => {
+          this.auction$.next(auction);
+          this.bids$.next(bids);
+          this.syncBidDefaultAmount();
+        },
+        error: (error) => {
+          this.error$.next(error?.error?.detail ?? 'Nu am putut incarca licitatia.');
+        }
+      });
+  }
+
+  private resetState(): void {
+    this.auction$.next(null);
+    this.bids$.next([]);
+    this.recentEvents$.next([]);
+    this.loading$.next(true);
+    this.placingBid$.next(false);
+    this.actionLoading$.next(false);
+    this.error$.next(null);
+    this.liveMessage$.next(null);
   }
 }
