@@ -1,12 +1,13 @@
-# Auction Platform Backend
+# Auction Platform
 
-Backend pentru o platforma de licitatii construit cu Spring Boot, PostgreSQL si RabbitMQ.
+Platforma de licitatii full-stack construita cu Spring Boot, PostgreSQL, RabbitMQ, WebSocket/STOMP si Angular 19.
 
 ## Module
 
 - `auction-api`: API REST, logica de business, persistenta, outbox, WebSocket.
 - `auction-shared`: contracte comune pentru evenimente.
 - `auction-worker`: consumator RabbitMQ pentru audit si procesari asincrone.
+- `auction-ui`: frontend Angular pentru listare, creare, administrare si monitorizare live a licitatiilor.
 
 ## Rolul fiecarui modul
 
@@ -44,6 +45,18 @@ Responsabilitati principale:
 - persista un audit tehnic in tabela `audit_events`
 - reprezinta locul in care pot fi adaugate ulterior notificari, analytics sau alte procese asincrone
 
+### `auction-ui`
+
+Responsabilitati principale:
+
+- afiseaza lista licitatiilor si overview operational
+- permite crearea unei licitatii noi din browser
+- afiseaza pagina de detalii pentru o licitatie
+- permite start si close din UI pentru fluxul de administrare
+- permite plasarea de bid-uri
+- consuma evenimente live prin WebSocket/STOMP
+- actualizeaza local starea licitatiei pe baza snapshot REST + evenimente live
+
 ## Stack
 
 - Java 21
@@ -54,6 +67,11 @@ Responsabilitati principale:
 - Flyway
 - RabbitMQ
 - Spring WebSocket
+- Angular 19
+- PrimeNG 19
+- Bootstrap 5
+- RxJS
+- STOMP.js + SockJS
 
 ## Cum porneste local
 
@@ -75,15 +93,27 @@ mvn -pl auction-api spring-boot:run
 mvn -pl auction-worker spring-boot:run
 ```
 
-4. API-ul ruleaza implicit la:
+4. Porneste UI-ul:
+
+```powershell
+cd auction-ui
+npm install
+npm start
+```
+
+5. API-ul ruleaza implicit la:
 
 - `http://localhost:8080`
 
-5. Worker-ul ruleaza implicit la:
+6. Worker-ul ruleaza implicit la:
 
 - `http://localhost:8081`
 
-6. RabbitMQ Management UI:
+7. UI-ul ruleaza implicit la:
+
+- `http://localhost:4200`
+
+8. RabbitMQ Management UI:
 
 - `http://localhost:15672`
 - user: `auctions`
@@ -93,7 +123,7 @@ mvn -pl auction-worker spring-boot:run
 
 Codul principal este in `auction-api/src/main/java/org/nedelcu/cosmin/auction/api`.
 
-Zonele importante:
+Zonele importante in `auction-api`:
 
 - `auction/controller`: endpoint-uri REST
 - `auction/service`: logica de business
@@ -114,9 +144,18 @@ In worker, zonele importante sunt:
 - `messaging`: RabbitMQ config si consumer
 - `audit`: persistenta auditului de procesare
 
+In `auction-ui`, zonele importante sunt:
+
+- `core/models`: contractele TypeScript aliniate cu backend-ul
+- `core/services`: integrare REST si WebSocket
+- `features/auction-list`: lista licitatiilor
+- `features/auction-create`: formular de creare licitatie
+- `features/auction-details`: snapshot REST + live updates + bid flow
+- `app.routes.ts`: rutele UI
+
 ## Ce face aplicatia acum
 
-Momentan backend-ul suporta:
+Backend-ul suporta:
 
 - creare licitatie
 - listare licitatii
@@ -132,6 +171,19 @@ Momentan backend-ul suporta:
 - publicare evenimente in RabbitMQ
 - broadcast WebSocket pentru evenimente live
 - audit al evenimentelor procesate in `audit_events`
+
+Frontend-ul suporta:
+
+- listare licitatii la `/auctions`
+- creare licitatie la `/auctions/new`
+- detalii licitatie la `/auctions/:id`
+- start auction din lista si din pagina de detalii
+- close auction din lista si din pagina de detalii
+- plasare bid din UI
+- countdown reactiv pana la `endTime`
+- extensie live a countdown-ului la `AUCTION_EXTENDED`
+- actualizare live a pretului si istoricului la `BID_PLACED`
+- dezactivare bid form la `AUCTION_CLOSED` sau la expirarea timpului
 
 ## Componente cheie
 
@@ -185,6 +237,19 @@ Audit-ul are rolul de:
 - debugging
 - baza pentru analytics sau notificari ulterioare
 - dovada ca worker-ul a procesat evenimentul
+
+### 6. Frontend reactiv
+
+Pagina de detalii foloseste un model hibrid:
+
+- snapshot initial prin REST (`getAuction`, `getBids`)
+- stream live prin WebSocket (`watchAuction`)
+- state local reactiv cu RxJS (`BehaviorSubject`, `combineLatest`, `timer`)
+
+Scopul este:
+
+- UI-ul sa porneasca dintr-o stare consistenta
+- apoi sa reflecte live schimbarile de pret, timp si status fara refresh manual
 
 ## Modelul de date
 
@@ -253,7 +318,7 @@ Cheile primare folosesc `bigint` cu secvente Postgres:
 
 ### 1. Create auction
 
-Clientul apeleaza:
+Clientul sau UI-ul apeleaza:
 
 - `POST /api/auctions`
 
@@ -265,9 +330,15 @@ Aplicatia:
 - initializeaza configuratia anti-sniping
 - salveaza licitatia in DB
 
+In frontend:
+
+- utilizatorul completeaza formularul de la `/auctions/new`
+- UI-ul trimite `POST /api/auctions`
+- dupa creare, UI-ul redirectioneaza la `/auctions/{id}`
+
 ### 2. Start auction
 
-Clientul apeleaza:
+Clientul sau UI-ul apeleaza:
 
 - `POST /api/auctions/{id}/start`
 
@@ -280,9 +351,14 @@ Aplicatia:
 - seteaza `startTime`
 - actualizeaza `updatedAt`
 
+In frontend:
+
+- butonul `Start` este disponibil pentru licitatiile `DRAFT`
+- dupa raspuns, UI-ul actualizeaza local starea licitatiei
+
 ### 3. Place bid
 
-Clientul apeleaza:
+Clientul sau UI-ul apeleaza:
 
 - `POST /api/auctions/{id}/bids`
 
@@ -305,9 +381,18 @@ Response-ul de bid expune si:
 - `auctionExtended`
 - `newEndTime`
 
+In frontend:
+
+- bid form calculeaza `nextMinimumBid = currentPrice + minIncrement`
+- formularul este activ doar daca licitatia este `RUNNING` si countdown-ul nu a expirat
+- UI-ul valideaza local suma minima
+- la succes, formularul asteapta confirmarea live
+- la `BID_PLACED`, UI-ul actualizeaza `currentPrice` si istoricul local
+- la `AUCTION_EXTENDED`, UI-ul actualizeaza `endTime` si countdown-ul
+
 ### 4. Close auction
 
-Clientul apeleaza:
+Clientul sau UI-ul apeleaza:
 
 - `POST /api/auctions/{id}/close`
 
@@ -318,6 +403,11 @@ Aplicatia:
 - seteaza statusul `ENDED`
 - salveaza evenimentul `AUCTION_CLOSED` in `outbox_events`
 - trimite `AUCTION_CLOSED` pe WebSocket
+
+In frontend:
+
+- butonul `Close` este disponibil pentru licitatiile `RUNNING`
+- dupa inchidere, bid form devine dezactivat
 
 ### 5. Auto-close auction
 
@@ -330,6 +420,12 @@ Aplicatia:
 - o marcheaza `ENDED`
 - salveaza evenimentul `AUCTION_CLOSED` in `outbox_events`
 - trimite evenimentul `AUCTION_CLOSED` si pe WebSocket
+
+In frontend:
+
+- countdown-ul ajunge la zero
+- formularul de bid este blocat imediat in UI
+- dupa `AUCTION_CLOSED`, statusul devine `ENDED`
 
 ## Reguli de business
 
@@ -346,6 +442,7 @@ Aplicatia:
 - `endTime` trebuie sa fie in viitor cand licitatia este pornita
 - un bid este acceptat doar daca `endTime > now`
 - daca un bid intra in fereastra finala configurata, licitatia se extinde
+- frontend-ul reflecta extinderea in countdown fara refresh complet
 
 Formula anti-sniping:
 
@@ -516,6 +613,59 @@ In acest moment exista:
 - `POST /api/auctions/{id}/bids`
 - `GET /api/auctions/{id}/bids`
 
+## Rute frontend actuale
+
+- `GET /auctions`
+- `GET /auctions/new`
+- `GET /auctions/:id`
+
+## Contracte UI importante
+
+### `AuctionResponse`
+
+Frontend-ul consuma un model stabil care include:
+
+- `id`
+- `title`
+- `description`
+- `startPrice`
+- `currentPrice`
+- `minIncrement`
+- `status`
+- `startTime`
+- `endTime`
+- `antiSnipingWindowSec`
+- `antiSnipingExtendSec`
+- `createdBy`
+- `version`
+
+### `BidResponse`
+
+Frontend-ul foloseste si campurile:
+
+- `auctionExtended`
+- `newEndTime`
+
+pentru a afisa contextul anti-sniping si pentru a marca bid-urile care au extins licitatia.
+
+### `AuctionRealtimeEvent<T>`
+
+Evenimentele live pentru UI au forma:
+
+```ts
+export interface AuctionRealtimeEvent<T = AuctionBusinessEvent> {
+  type: AuctionEventType;
+  payload: T;
+  occurredAt: string;
+}
+```
+
+Tipurile de evenimente folosite in UI sunt:
+
+- `BID_PLACED`
+- `AUCTION_EXTENDED`
+- `AUCTION_CLOSED`
+
 ## Exemple de scenarii reale
 
 ### Scenariul 1: bid normal
@@ -547,6 +697,25 @@ In acest moment exista:
 6. evenimentul este publicat in RabbitMQ
 7. worker-ul il persista in `audit_events`
 
+### Scenariul 4: creare si administrare completa din UI
+
+1. utilizatorul intra pe `/auctions`
+2. apasa `Create auction`
+3. completeaza formularul si trimite cererea
+4. UI-ul redirectioneaza la pagina de detalii
+5. utilizatorul porneste licitatia din `DRAFT`
+6. licitatia devine `RUNNING`
+7. bid-urile si evenimentele live sunt vizibile in aceeasi pagina
+
+### Scenariul 5: anti-sniping vizibil in UI
+
+1. licitatia se apropie de expirare
+2. utilizatorul sau alt client trimite un bid valid
+3. backend-ul extinde `endTime`
+4. UI-ul primeste `AUCTION_EXTENDED`
+5. countdown-ul se prelungeste imediat
+6. istoricul bid-urilor marcheaza extensia
+
 ## Date de test utile
 
 Exemple de useri locali folositi in testare:
@@ -558,7 +727,10 @@ Exemple de useri locali folositi in testare:
 
 Directia fireasca din punctul actual:
 
-1. teste de integrare end-to-end pentru API + RabbitMQ + worker
-2. dead-letter / retry strategy pe consumer side
-3. notificari reale sau analytics peste `audit_events`
-4. securizare si autentificare pentru endpoint-uri
+1. test runtime end-to-end pentru fluxul `create -> start -> bid -> anti-sniping -> close/auto-close`
+2. validari suplimentare in UI pentru formularul de create
+3. tratare mai fina a erorilor backend pe campuri in frontend
+4. teste de integrare end-to-end pentru API + RabbitMQ + worker
+5. dead-letter / retry strategy pe consumer side
+6. notificari reale sau analytics peste `audit_events`
+7. securizare si autentificare pentru endpoint-uri
