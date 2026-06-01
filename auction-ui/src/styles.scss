@@ -1,0 +1,59 @@
+@use 'bootstrap/scss/bootstrap';
+@import 'primeicons/primeicons.css';
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.page-section {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.page-title {
+  margin: 0;
+  font-size: clamp(1.65rem, 1.1rem + 1vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #0f172a;
+}
+
+.page-subtitle {
+  max-width: 60rem;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.p-card {
+  border-radius: 0.75rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+}
+
+.p-toolbar {
+  border: 0;
+  border-radius: 0;
+  padding: 0.9rem 1.25rem;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.p-datatable-table {
+  min-width: 100%;
+}

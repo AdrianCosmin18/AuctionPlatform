@@ -1,0 +1,25 @@
+<div class="app-shell">
+  <header class="app-shell__header">
+    <p-toolbar>
+      <ng-template #start>
+        <div class="brand-lockup">
+          <span class="brand-mark">
+            <i class="pi pi-hammer"></i>
+          </span>
+          <div>
+            <div class="brand-title">{{ title }}</div>
+            <div class="brand-subtitle">Operations console</div>
+          </div>
+        </div>
+      </ng-template>
+
+      <ng-template #end>
+        <a pButton routerLink="/auctions" icon="pi pi-home" label="Auctions" severity="contrast"></a>
+      </ng-template>
+    </p-toolbar>
+  </header>
+
+  <main class="app-shell__content container-fluid">
+    <router-outlet />
+  </main>
+</div>

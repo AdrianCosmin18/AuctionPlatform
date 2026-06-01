@@ -1,0 +1,77 @@
+<section class="page-section">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <h1 class="page-title mb-1">Auctions</h1>
+      <p class="page-subtitle mb-0">
+        Lista curenta a licitatiilor din backend, cu actiuni rapide pentru start, close si navigare spre detalii.
+      </p>
+    </div>
+    <p-button icon="pi pi-refresh" label="Reload" severity="secondary" [outlined]="true" (onClick)="loadAuctions()" />
+  </div>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  <p-card>
+    @if (loading) {
+      <div class="loading-state">
+        <p-progressSpinner strokeWidth="4" />
+      </div>
+    } @else {
+      <p-table [value]="auctions" [tableStyle]="{ 'min-width': '100%' }" responsiveLayout="scroll">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Current price</th>
+            <th>Min increment</th>
+            <th>End time</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-auction>
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ auction.title }}</div>
+              <div class="text-body-secondary small">#{{ auction.id }}</div>
+            </td>
+            <td>
+              <p-tag [value]="auction.status" [severity]="statusSeverity(auction.status)" />
+            </td>
+            <td>{{ auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</td>
+            <td>{{ auction.minIncrement | currency: 'EUR' : 'symbol' : '1.2-2' }}</td>
+            <td>{{ auction.endTime ? (auction.endTime | date: 'medium') : '-' }}</td>
+            <td>
+              <div class="d-flex justify-content-end gap-2 flex-wrap">
+                <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="Details" severity="info"></a>
+                @if (auction.status === 'DRAFT') {
+                  <p-button
+                    icon="pi pi-play"
+                    label="Start"
+                    [loading]="actionLoadingId === auction.id"
+                    (onClick)="startAuction(auction)"
+                  />
+                }
+                @if (auction.status === 'RUNNING') {
+                  <p-button
+                    icon="pi pi-stop"
+                    label="Close"
+                    severity="danger"
+                    [loading]="actionLoadingId === auction.id"
+                    (onClick)="closeAuction(auction)"
+                  />
+                }
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="6" class="text-center py-5 text-body-secondary">Nu exista licitatii disponibile.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    }
+  </p-card>
+</section>

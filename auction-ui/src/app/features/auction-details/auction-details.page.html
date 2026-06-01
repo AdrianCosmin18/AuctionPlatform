@@ -1,0 +1,172 @@
+<section class="page-section">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+      <a routerLink="/auctions" class="back-link">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to auctions</span>
+      </a>
+      <h1 class="page-title mb-1">{{ auction?.title ?? 'Auction details' }}</h1>
+      <p class="page-subtitle mb-0">Monitorizare live, bidding si istoric evenimente pentru licitatia selectata.</p>
+    </div>
+    @if (auction) {
+      <p-tag [value]="auction.status" [severity]="statusSeverity(auction.status)" />
+    }
+  </div>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  @if (liveMessage) {
+    <p-message severity="success" [text]="liveMessage" styleClass="w-100 mb-3" />
+  }
+
+  @if (loading && !auction) {
+    <div class="loading-state">
+      <p-progressSpinner strokeWidth="4" />
+    </div>
+  } @else if (auction) {
+    <div class="row g-4">
+      <div class="col-12 col-xl-8">
+        <p-card>
+          <div class="auction-meta-grid">
+            <div>
+              <span class="meta-label">Auction ID</span>
+              <div class="meta-value">#{{ auction.id }}</div>
+            </div>
+            <div>
+              <span class="meta-label">Current price</span>
+              <div class="meta-value">{{ auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
+            </div>
+            <div>
+              <span class="meta-label">Min increment</span>
+              <div class="meta-value">{{ auction.minIncrement | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
+            </div>
+            <div>
+              <span class="meta-label">Ends at</span>
+              <div class="meta-value">{{ auction.endTime ? (auction.endTime | date: 'medium') : '-' }}</div>
+            </div>
+            <div>
+              <span class="meta-label">Start time</span>
+              <div class="meta-value">{{ auction.startTime ? (auction.startTime | date: 'medium') : '-' }}</div>
+            </div>
+            <div>
+              <span class="meta-label">Anti-sniping</span>
+              <div class="meta-value">
+                {{ auction.antiSnipingWindowSec ?? 0 }}s / {{ auction.antiSnipingExtendSec ?? 0 }}s
+              </div>
+            </div>
+          </div>
+
+          @if (auction.description) {
+            <p-divider />
+            <p class="mb-0 description-copy">{{ auction.description }}</p>
+          }
+
+          <p-divider />
+          <div class="d-flex flex-wrap gap-2">
+            @if (auction.status === 'DRAFT') {
+              <p-button icon="pi pi-play" label="Start auction" [loading]="actionLoading" (onClick)="startAuction()" />
+            }
+            @if (auction.status === 'RUNNING') {
+              <p-button
+                icon="pi pi-stop"
+                label="Close auction"
+                severity="danger"
+                [loading]="actionLoading"
+                (onClick)="closeAuction()"
+              />
+            }
+            <p-button icon="pi pi-refresh" label="Refresh" severity="secondary" [outlined]="true" (onClick)="loadAuction(auction.id); loadBids(auction.id)" />
+          </div>
+        </p-card>
+
+        <p-card header="Bid history" styleClass="mt-4">
+          <p-table [value]="bids" responsiveLayout="scroll">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Bidder</th>
+                <th>Amount</th>
+                <th>Created at</th>
+                <th>Extended</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-bid>
+              <tr>
+                <td>#{{ bid.bidderId }}</td>
+                <td>{{ bid.amount | currency: 'EUR' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ bid.createdAt | date: 'medium' }}</td>
+                <td>
+                  @if (bid.auctionExtended) {
+                    <p-tag value="Yes" severity="success" />
+                  } @else {
+                    <span class="text-body-secondary">No</span>
+                  }
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="4" class="text-center py-4 text-body-secondary">Nu exista bids pentru aceasta licitatie.</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </p-card>
+      </div>
+
+      <div class="col-12 col-xl-4">
+        <p-card header="Place bid">
+          <form class="d-grid gap-3" [formGroup]="bidForm" (ngSubmit)="placeBid()">
+            <div>
+              <label class="form-label" for="bidderId">Bidder ID</label>
+              <p-inputNumber
+                inputId="bidderId"
+                formControlName="bidderId"
+                [useGrouping]="false"
+                styleClass="w-100"
+                inputStyleClass="w-100"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" for="amount">Amount</label>
+              <p-inputNumber
+                inputId="amount"
+                formControlName="amount"
+                mode="currency"
+                currency="EUR"
+                locale="en-US"
+                styleClass="w-100"
+                inputStyleClass="w-100"
+              />
+            </div>
+
+            <p-button
+              type="submit"
+              label="Submit bid"
+              icon="pi pi-send"
+              [disabled]="auction.status !== 'RUNNING'"
+              [loading]="placingBid"
+            />
+          </form>
+        </p-card>
+
+        <p-card header="Live events" styleClass="mt-4">
+          <div class="event-stream">
+            @for (event of recentEvents; track trackEvent($index, event)) {
+              <div class="event-row">
+                <div class="event-row__header">
+                  <p-tag [value]="event.type" severity="info" />
+                  <span class="event-time">{{ event.occurredAt | date: 'shortTime' }}</span>
+                </div>
+                <div class="event-copy">{{ eventSummary(event) }}</div>
+              </div>
+            } @empty {
+              <div class="text-body-secondary">Nu au fost receptionate evenimente live inca.</div>
+            }
+          </div>
+        </p-card>
+      </div>
+    </div>
+  }
+</section>
