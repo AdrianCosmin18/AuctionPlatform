@@ -42,6 +42,34 @@ export class AuctionListPageComponent implements OnInit {
     this.loadAuctions();
   }
 
+  get totalAuctions(): number {
+    return this.auctions.length;
+  }
+
+  get runningAuctions(): number {
+    return this.auctions.filter((auction) => auction.status === 'RUNNING').length;
+  }
+
+  get draftAuctions(): number {
+    return this.auctions.filter((auction) => auction.status === 'DRAFT').length;
+  }
+
+  get endedAuctions(): number {
+    return this.auctions.filter((auction) => auction.status === 'ENDED').length;
+  }
+
+  get highestCurrentPrice(): number {
+    return this.auctions.reduce((max, auction) => Math.max(max, Number(auction.currentPrice)), 0);
+  }
+
+  get featuredAuction(): Auction | null {
+    const running = this.auctions
+      .filter((auction) => auction.status === 'RUNNING' && auction.endTime)
+      .sort((left, right) => new Date(left.endTime as string).getTime() - new Date(right.endTime as string).getTime());
+
+    return running[0] ?? this.auctions[0] ?? null;
+  }
+
   loadAuctions(): void {
     this.loading = true;
     this.errorMessage = null;
@@ -106,6 +134,28 @@ export class AuctionListPageComponent implements OnInit {
       default:
         return 'info';
     }
+  }
+
+  endTimeTone(auction: Auction): 'critical' | 'warning' | 'neutral' {
+    if (!auction.endTime || auction.status !== 'RUNNING') {
+      return 'neutral';
+    }
+
+    const millisUntilEnd = new Date(auction.endTime).getTime() - Date.now();
+
+    if (millisUntilEnd <= 5 * 60 * 1000) {
+      return 'critical';
+    }
+
+    if (millisUntilEnd <= 30 * 60 * 1000) {
+      return 'warning';
+    }
+
+    return 'neutral';
+  }
+
+  trackAuction(index: number, auction: Auction): number {
+    return auction.id;
   }
 
   private replaceAuction(updated: Auction): void {

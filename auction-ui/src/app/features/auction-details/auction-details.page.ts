@@ -62,6 +62,22 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     amount: [0, [Validators.required, Validators.min(0.01)]]
   });
 
+  get bidCount(): number {
+    return this.bids.length;
+  }
+
+  get nextMinimumBid(): number | null {
+    if (!this.auction) {
+      return null;
+    }
+
+    return Number(this.auction.currentPrice) + Number(this.auction.minIncrement);
+  }
+
+  get lastBidderId(): number | null {
+    return this.bids[0]?.bidderId ?? null;
+  }
+
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       const id = Number(params.get('id'));
@@ -212,6 +228,19 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       }
       default:
         return '';
+    }
+  }
+
+  eventSeverity(event: AuctionRealtimeEvent): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+    switch (event.type) {
+      case 'BID_PLACED':
+        return 'success';
+      case 'AUCTION_EXTENDED':
+        return 'warn';
+      case 'AUCTION_CLOSED':
+        return 'secondary';
+      default:
+        return 'info';
     }
   }
 

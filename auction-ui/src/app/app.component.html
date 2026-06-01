@@ -14,7 +14,13 @@
       </ng-template>
 
       <ng-template #end>
-        <a pButton routerLink="/auctions" icon="pi pi-home" label="Auctions" severity="contrast"></a>
+        <div class="header-actions">
+          <div class="status-pill">
+            <span class="status-dot"></span>
+            <span>Connected workspace</span>
+          </div>
+          <a pButton routerLink="/auctions" icon="pi pi-home" label="Auctions" severity="contrast"></a>
+        </div>
       </ng-template>
     </p-toolbar>
   </header>
