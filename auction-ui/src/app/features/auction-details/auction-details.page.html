@@ -78,6 +78,17 @@
               <div>
                 <span class="meta-label">Ends at</span>
                 <div class="meta-value">{{ vm.auction.endTime ? (vm.auction.endTime | date: 'medium') : '-' }}</div>
+                <span class="meta-label mt-2">Time remaining</span>
+                @if (vm.remainingTime) {
+                  <div class="meta-value countdown" [class.countdown--expired]="vm.remainingTime.expired">
+                    @if (vm.remainingTime.days > 0) {
+                      <span>{{ vm.remainingTime.days }}d </span>
+                    }
+                    <span>{{ vm.remainingTime.hours }}h {{ vm.remainingTime.minutes }}m {{ vm.remainingTime.seconds }}s</span>
+                  </div>
+                } @else {
+                  <div class="meta-value">-</div>
+                }
               </div>
               <div>
                 <span class="meta-label">Start time</span>
@@ -170,11 +181,17 @@
                   />
                 </div>
 
+                @if (vm.auction.status !== 'RUNNING') {
+                  <p-message severity="info" text="Licitatia nu accepta bid-uri in starea curenta." />
+                } @else if (vm.remainingTime?.expired) {
+                  <p-message severity="warn" text="Timpul licitatiei a expirat. Asteptam inchiderea automata." />
+                }
+
                 <p-button
                   type="submit"
                   label="Submit bid"
                   icon="pi pi-send"
-                  [disabled]="!vm.canPlaceBid"
+                  [disabled]="!vm.canPlaceBid || vm.placingBid"
                   [loading]="vm.placingBid"
                   styleClass="w-100"
                 />

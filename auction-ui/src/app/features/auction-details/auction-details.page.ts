@@ -10,7 +10,7 @@ import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
-import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil } from 'rxjs';
+import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil, timer } from 'rxjs';
 import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionRealtimeEvent } from '../../core/models/auction-realtime-event.model';
@@ -57,6 +57,25 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   readonly actionLoading$ = new BehaviorSubject<boolean>(false);
   readonly error$ = new BehaviorSubject<string | null>(null);
   readonly liveMessage$ = new BehaviorSubject<string | null>(null);
+  readonly remainingTime$ = combineLatest([this.auction$, timer(0, 1000)]).pipe(
+    map(([auction]) => {
+      if (!auction?.endTime) {
+        return null;
+      }
+
+      const diffMs = new Date(auction.endTime).getTime() - Date.now();
+      const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+
+      return {
+        totalSeconds,
+        days: Math.floor(totalSeconds / 86400),
+        hours: Math.floor((totalSeconds % 86400) / 3600),
+        minutes: Math.floor((totalSeconds % 3600) / 60),
+        seconds: totalSeconds % 60,
+        expired: totalSeconds === 0
+      };
+    })
+  );
   readonly vm$ = combineLatest({
     auction: this.auction$,
     bids: this.bids$,
@@ -65,9 +84,10 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     placingBid: this.placingBid$,
     actionLoading: this.actionLoading$,
     error: this.error$,
-    liveMessage: this.liveMessage$
+    liveMessage: this.liveMessage$,
+    remainingTime: this.remainingTime$
   }).pipe(
-    map(({ auction, bids, recentEvents, loading, placingBid, actionLoading, error, liveMessage }) => ({
+    map(({ auction, bids, recentEvents, loading, placingBid, actionLoading, error, liveMessage, remainingTime }) => ({
       auction,
       bids,
       recentEvents,
@@ -76,10 +96,11 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       actionLoading,
       error,
       liveMessage,
+      remainingTime,
       bidCount: bids.length,
       nextMinimumBid: auction ? Number(auction.currentPrice) + Number(auction.minIncrement) : null,
       lastBidderId: bids[0]?.bidderId ?? null,
-      canPlaceBid: auction?.status === 'RUNNING'
+      canPlaceBid: auction?.status === 'RUNNING' && !remainingTime?.expired
     }))
   );
 
@@ -164,13 +185,21 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
   placeBid(): void {
     const auction = this.auction$.value;
+    const remainingTime = this.remainingTimeSnapshot();
 
-    if (!auction || this.bidForm.invalid) {
+    if (!auction || this.bidForm.invalid || auction.status !== 'RUNNING' || remainingTime?.expired) {
       this.bidForm.markAllAsTouched();
       return;
     }
 
     const { amount } = this.bidForm.getRawValue();
+    const minimumAllowed = Number(auction.currentPrice) + Number(auction.minIncrement);
+
+    if (amount < minimumAllowed) {
+      this.error$.next(`Bid-ul minim permis este ${minimumAllowed.toFixed(2)} EUR.`);
+      return;
+    }
+
     this.placingBid$.next(true);
     this.error$.next(null);
     this.liveMessage$.next(null);
@@ -348,5 +377,34 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     this.actionLoading$.next(false);
     this.error$.next(null);
     this.liveMessage$.next(null);
+  }
+
+  private remainingTimeSnapshot():
+    | {
+        totalSeconds: number;
+        days: number;
+        hours: number;
+        minutes: number;
+        seconds: number;
+        expired: boolean;
+      }
+    | null {
+    const auction = this.auction$.value;
+
+    if (!auction?.endTime) {
+      return null;
+    }
+
+    const diffMs = new Date(auction.endTime).getTime() - Date.now();
+    const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+
+    return {
+      totalSeconds,
+      days: Math.floor(totalSeconds / 86400),
+      hours: Math.floor((totalSeconds % 86400) / 3600),
+      minutes: Math.floor((totalSeconds % 3600) / 60),
+      seconds: totalSeconds % 60,
+      expired: totalSeconds === 0
+    };
   }
 }

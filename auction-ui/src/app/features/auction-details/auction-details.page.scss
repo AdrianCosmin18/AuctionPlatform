@@ -76,6 +76,15 @@
   font-weight: 600;
 }
 
+.countdown {
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+.countdown--expired {
+  color: #dc2626;
+}
+
 .description-copy {
   line-height: 1.65;
   color: #475569;
