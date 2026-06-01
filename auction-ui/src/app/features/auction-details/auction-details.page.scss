@@ -76,6 +76,18 @@
   font-weight: 600;
 }
 
+.form-helper {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: #dc2626;
+}
+
 .countdown {
   font-variant-numeric: tabular-nums;
   color: #0f172a;

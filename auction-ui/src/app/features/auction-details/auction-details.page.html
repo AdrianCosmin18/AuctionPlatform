@@ -179,6 +179,22 @@
                     styleClass="w-100"
                     inputStyleClass="w-100"
                   />
+                  <div class="form-helper mt-2">
+                    Minimum allowed:
+                    <strong>
+                      {{ vm.nextMinimumBid ? (vm.nextMinimumBid | currency: 'EUR' : 'symbol' : '1.2-2') : '-' }}
+                    </strong>
+                  </div>
+                  @if (bidForm.controls.amount.touched && bidForm.controls.amount.errors?.['required']) {
+                    <small class="field-error">Introdu suma bid-ului.</small>
+                  } @else if (bidForm.controls.amount.touched && bidForm.controls.amount.errors?.['min']) {
+                    <small class="field-error">Suma trebuie sa fie mai mare decat zero.</small>
+                  } @else if (bidForm.controls.amount.touched && bidForm.controls.amount.errors?.['minimumBid']) {
+                    <small class="field-error">
+                      Bid-ul minim permis este
+                      {{ bidForm.controls.amount.errors?.['minimumBid']?.requiredMinimum | currency: 'EUR' : 'symbol' : '1.2-2' }}.
+                    </small>
+                  }
                 </div>
 
                 @if (vm.auction.status !== 'RUNNING') {

@@ -1,6 +1,7 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -105,7 +106,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   );
 
   readonly bidForm = this.fb.nonNullable.group({
-    amount: [0, [Validators.required, Validators.min(0.01)]]
+    amount: [0, [Validators.required, Validators.min(0.01), this.minimumBidValidator()]]
   });
 
   ngOnInit(): void {
@@ -211,11 +212,18 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         next: () => {
           this.bidForm.reset({ amount }, { emitEvent: false });
           this.liveMessage$.next('Bid trimis. Astept confirmarea live.');
+          this.bidForm.controls.amount.updateValueAndValidity({ emitEvent: false });
         },
-        error: (error) => {
-          this.error$.next(error?.error?.detail ?? 'Bid-ul nu a putut fi plasat.');
+        error: (error: HttpErrorResponse) => {
+          this.error$.next(this.bidErrorMessage(error));
         }
       });
+  }
+
+  minimumBid(): number | null {
+    const auction = this.auction$.value;
+
+    return auction ? Number(auction.currentPrice) + Number(auction.minIncrement) : null;
   }
 
   statusSeverity(status: AuctionStatus): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
@@ -345,6 +353,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
     const nextAmount = Number(auction.currentPrice) + Number(auction.minIncrement);
     this.bidForm.patchValue({ amount: nextAmount }, { emitEvent: false });
+    this.bidForm.controls.amount.updateValueAndValidity({ emitEvent: false });
   }
 
   private loadSnapshot(auctionId: number): void {
@@ -406,5 +415,41 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       seconds: totalSeconds % 60,
       expired: totalSeconds === 0
     };
+  }
+
+  private minimumBidValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const auction = this.auction$.value;
+      const amount = Number(control.value);
+
+      if (!auction || !Number.isFinite(amount)) {
+        return null;
+      }
+
+      const minimumAllowed = Number(auction.currentPrice) + Number(auction.minIncrement);
+
+      return amount >= minimumAllowed
+        ? null
+        : {
+            minimumBid: {
+              requiredMinimum: minimumAllowed,
+              actual: amount
+            }
+          };
+    };
+  }
+
+  private bidErrorMessage(error: HttpErrorResponse): string {
+    const detail = error.error?.detail;
+
+    if (error.status === 409) {
+      return detail ?? 'Bid-ul a intrat in conflict cu o actualizare concurenta. Reincarca si incearca din nou.';
+    }
+
+    if (error.status === 400) {
+      return detail ?? 'Bid-ul este invalid sau licitatia nu mai accepta oferte.';
+    }
+
+    return detail ?? 'Bid-ul nu a putut fi plasat.';
   }
 }
