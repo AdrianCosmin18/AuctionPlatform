@@ -13,6 +13,11 @@ export const routes: Routes = [
     component: AuctionListPageComponent
   },
   {
+    path: 'auctions/new',
+    loadComponent: () =>
+      import('./features/auction-create/auction-create.page').then((m) => m.AuctionCreatePageComponent)
+  },
+  {
     path: 'auctions/:id',
     component: AuctionDetailsPageComponent
   },
