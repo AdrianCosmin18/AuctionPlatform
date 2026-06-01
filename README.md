@@ -148,9 +148,9 @@ In `auction-ui`, zonele importante sunt:
 
 - `core/models`: contractele TypeScript aliniate cu backend-ul
 - `core/services`: integrare REST si WebSocket
-- `features/auction-list`: lista licitatiilor
+- `features/auction-list`: lista licitatiilor, filtre, search, start/close rapid
 - `features/auction-create`: formular de creare licitatie
-- `features/auction-details`: snapshot REST + live updates + bid flow
+- `features/auction-details`: snapshot REST + live updates + bid flow + countdown + bid history + live events
 - `app.routes.ts`: rutele UI
 
 ## Ce face aplicatia acum
@@ -175,6 +175,8 @@ Backend-ul suporta:
 Frontend-ul suporta:
 
 - listare licitatii la `/auctions`
+- filtrare licitatii dupa status: `ALL`, `RUNNING`, `DRAFT`, `ENDED`
+- cautare dupa titlu sau descriere in lista de licitatii
 - creare licitatie la `/auctions/new`
 - detalii licitatie la `/auctions/:id`
 - start auction din lista si din pagina de detalii
@@ -184,6 +186,8 @@ Frontend-ul suporta:
 - extensie live a countdown-ului la `AUCTION_EXTENDED`
 - actualizare live a pretului si istoricului la `BID_PLACED`
 - dezactivare bid form la `AUCTION_CLOSED` sau la expirarea timpului
+- panou `Bid history` cu cele mai recente bid-uri
+- panou `Live events` cu evenimentele WebSocket receptionate in timp real
 
 ## Componente cheie
 
@@ -250,6 +254,13 @@ Scopul este:
 
 - UI-ul sa porneasca dintr-o stare consistenta
 - apoi sa reflecte live schimbarile de pret, timp si status fara refresh manual
+
+Lista de licitatii completeaza partea live cu un control operational local:
+
+- filtre rapide pe status
+- cautare dupa titlu sau descriere
+- actiuni rapide de start si close
+- acces direct la licitatia relevanta
 
 ## Modelul de date
 
@@ -336,6 +347,19 @@ In frontend:
 - UI-ul trimite `POST /api/auctions`
 - dupa creare, UI-ul redirectioneaza la `/auctions/{id}`
 
+### 1b. Browse and filter auctions
+
+Utilizatorul intra pe:
+
+- `GET /auctions`
+
+UI-ul:
+
+- incarca lista completa de licitatii
+- filtreaza local dupa `ALL`, `RUNNING`, `DRAFT`, `ENDED`
+- cauta dupa `title` si `description`
+- permite actiuni rapide de `Start`, `Close` si `Details`
+
 ### 2. Start auction
 
 Clientul sau UI-ul apeleaza:
@@ -389,6 +413,8 @@ In frontend:
 - la succes, formularul asteapta confirmarea live
 - la `BID_PLACED`, UI-ul actualizeaza `currentPrice` si istoricul local
 - la `AUCTION_EXTENDED`, UI-ul actualizeaza `endTime` si countdown-ul
+- panoul `Bid history` afiseaza bid-urile cu cel mai nou element sus
+- panoul `Live events` afiseaza cronologic invers evenimentele WebSocket receptionate
 
 ### 4. Close auction
 
@@ -716,6 +742,14 @@ Tipurile de evenimente folosite in UI sunt:
 5. countdown-ul se prelungeste imediat
 6. istoricul bid-urilor marcheaza extensia
 
+### Scenariul 6: filtrare operationala in UI
+
+1. utilizatorul intra pe `/auctions`
+2. selecteaza `RUNNING` pentru a vedea doar licitatiile active
+3. cauta dupa un cuvant din titlu sau descriere
+4. UI-ul filtreaza local lista fara request suplimentar
+5. utilizatorul intra direct pe licitatia relevanta sau executa o actiune rapida
+
 ## Date de test utile
 
 Exemple de useri locali folositi in testare:
@@ -728,9 +762,10 @@ Exemple de useri locali folositi in testare:
 Directia fireasca din punctul actual:
 
 1. test runtime end-to-end pentru fluxul `create -> start -> bid -> anti-sniping -> close/auto-close`
-2. validari suplimentare in UI pentru formularul de create
-3. tratare mai fina a erorilor backend pe campuri in frontend
-4. teste de integrare end-to-end pentru API + RabbitMQ + worker
-5. dead-letter / retry strategy pe consumer side
-6. notificari reale sau analytics peste `audit_events`
-7. securizare si autentificare pentru endpoint-uri
+2. toast notifications dedicate pentru evenimente live si actiuni cheie din UI
+3. validari suplimentare in UI pentru formularul de create
+4. tratare mai fina a erorilor backend pe campuri in frontend
+5. teste de integrare end-to-end pentru API + RabbitMQ + worker
+6. dead-letter / retry strategy pe consumer side
+7. notificari reale sau analytics peste `audit_events`
+8. securizare si autentificare pentru endpoint-uri

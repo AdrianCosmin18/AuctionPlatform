@@ -1,8 +1,10 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
+import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
@@ -17,11 +19,13 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     RouterLink,
     CardModule,
     TableModule,
     TagModule,
     ButtonModule,
+    InputTextModule,
     ProgressSpinnerModule,
     MessageModule,
     CurrencyPipe,
@@ -34,6 +38,8 @@ export class AuctionListPageComponent implements OnInit {
   private readonly auctionApi = inject(AuctionApiService);
 
   auctions: Auction[] = [];
+  statusFilter: 'ALL' | AuctionStatus = 'ALL';
+  searchTerm = '';
   loading = false;
   actionLoadingId: number | null = null;
   errorMessage: string | null = null;
@@ -68,6 +74,20 @@ export class AuctionListPageComponent implements OnInit {
       .sort((left, right) => new Date(left.endTime as string).getTime() - new Date(right.endTime as string).getTime());
 
     return running[0] ?? this.auctions[0] ?? null;
+  }
+
+  get filteredAuctions(): Auction[] {
+    const search = this.searchTerm.trim().toLowerCase();
+
+    return this.auctions.filter((auction) => {
+      const matchesStatus = this.statusFilter === 'ALL' || auction.status === this.statusFilter;
+      const matchesSearch =
+        !search ||
+        auction.title.toLowerCase().includes(search) ||
+        auction.description?.toLowerCase().includes(search);
+
+      return matchesStatus && matchesSearch;
+    });
   }
 
   loadAuctions(): void {
@@ -156,6 +176,15 @@ export class AuctionListPageComponent implements OnInit {
 
   trackAuction(index: number, auction: Auction): number {
     return auction.id;
+  }
+
+  setStatusFilter(status: 'ALL' | AuctionStatus): void {
+    this.statusFilter = status;
+  }
+
+  clearFilters(): void {
+    this.statusFilter = 'ALL';
+    this.searchTerm = '';
   }
 
   private replaceAuction(updated: Auction): void {

@@ -62,7 +62,37 @@
         <p-progressSpinner strokeWidth="4" />
       </div>
     } @else {
-      <p-table [value]="auctions" [tableStyle]="{ 'min-width': '100%' }" responsiveLayout="scroll" [rowTrackBy]="trackAuction">
+      <div class="filters-bar">
+        <span class="p-input-icon-left filters-search">
+          <i class="pi pi-search"></i>
+          <input pInputText type="text" placeholder="Search auctions" [(ngModel)]="searchTerm" class="w-100" />
+        </span>
+
+        <div class="status-filters">
+          <p-button label="All" [outlined]="statusFilter !== 'ALL'" (onClick)="setStatusFilter('ALL')" />
+          <p-button
+            label="Running"
+            severity="success"
+            [outlined]="statusFilter !== 'RUNNING'"
+            (onClick)="setStatusFilter('RUNNING')"
+          />
+          <p-button label="Draft" severity="warn" [outlined]="statusFilter !== 'DRAFT'" (onClick)="setStatusFilter('DRAFT')" />
+          <p-button
+            label="Ended"
+            severity="secondary"
+            [outlined]="statusFilter !== 'ENDED'"
+            (onClick)="setStatusFilter('ENDED')"
+          />
+        </div>
+
+        <p-button label="Clear" severity="secondary" [text]="true" (onClick)="clearFilters()" />
+      </div>
+
+      <p-table
+        [value]="filteredAuctions"
+        [tableStyle]="{ 'min-width': '100%' }"
+        responsiveLayout="scroll"
+        [rowTrackBy]="trackAuction">
         <ng-template pTemplate="header">
           <tr>
             <th>Title</th>
