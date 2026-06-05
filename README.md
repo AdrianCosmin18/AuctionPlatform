@@ -56,6 +56,7 @@ Responsabilitati principale:
 - permite plasarea de bid-uri
 - consuma evenimente live prin WebSocket/STOMP
 - actualizeaza local starea licitatiei pe baza snapshot REST + evenimente live
+- gestioneaza galerie de imagini pentru fiecare licitatie prin upload local din browser
 
 ## Stack
 
@@ -182,12 +183,14 @@ Frontend-ul suporta:
 - start auction din lista si din pagina de detalii
 - close auction din lista si din pagina de detalii
 - plasare bid din UI
+- creare licitatie cu pana la 5 imagini locale prin upload `multipart/form-data`
 - countdown reactiv pana la `endTime`
 - extensie live a countdown-ului la `AUCTION_EXTENDED`
 - actualizare live a pretului si istoricului la `BID_PLACED`
 - dezactivare bid form la `AUCTION_CLOSED` sau la expirarea timpului
 - toast notifications PrimeNG pentru evenimente live si actiuni cheie din `auction-details`
 - afisare rezultat final pentru licitatiile inchise: winner, winning bid, final price, close reason, closed at
+- imagine principala in lista si galerie in pagina de detalii
 - panou `Bid history` cu cele mai recente bid-uri
 - panou `Live events` cu evenimentele WebSocket receptionate in timp real
 
@@ -270,6 +273,7 @@ Tabele principale:
 
 - `users`
 - `auctions`
+- `auction_images`
 - `bids`
 - `outbox_events`
 - `audit_events`
@@ -298,6 +302,16 @@ Retine istoricul imutabil al bid-urilor:
 - cine a licitat
 - ce suma a fost oferita
 - cand s-a plasat bid-ul
+
+### `auction_images`
+
+Retine imaginile asociate unei licitatii:
+
+- `auction_id`
+- `image_url`
+- `display_order`
+
+`image_url` retine calea media generata de backend dupa upload local. Prima imagine din `display_order` este folosita ca imagine principala in listare, iar toate imaginile sunt afisate in galerie in pagina de detalii.
 
 ### `outbox_events`
 
@@ -351,7 +365,8 @@ Aplicatia:
 In frontend:
 
 - utilizatorul completeaza formularul de la `/auctions/new`
-- UI-ul trimite `POST /api/auctions`
+- optional selecteaza pana la 5 imagini locale prin `p-fileupload`
+- UI-ul trimite `POST /api/auctions` ca `multipart/form-data`
 - dupa creare, UI-ul redirectioneaza la `/auctions/{id}`
 
 ### 1b. Browse and filter auctions
@@ -365,6 +380,7 @@ UI-ul:
 - incarca lista completa de licitatii
 - filtreaza local dupa `ALL`, `RUNNING`, `DRAFT`, `ENDED`
 - cauta dupa `title` si `description`
+- foloseste prima imagine din galerie ca thumbnail in lista si in sectiunea `Focus now`
 - permite actiuni rapide de `Start`, `Close` si `Details`
 
 ### 2. Start auction
@@ -683,7 +699,20 @@ Frontend-ul consuma un model stabil care include:
 - `finalPrice`
 - `closedAt`
 - `closedReason`
+- `images[]`
 - `version`
+
+### `AuctionImageResponse`
+
+Fiecare imagine expusa de backend include:
+
+- `id`
+- `imageUrl`
+- `displayOrder`
+
+Backend-ul serveste fisierele incarcate prin:
+
+- `GET /media/**`
 
 ### `BidResponse`
 

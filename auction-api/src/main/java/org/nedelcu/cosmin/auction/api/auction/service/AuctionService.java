@@ -2,17 +2,24 @@ package org.nedelcu.cosmin.auction.api.auction.service;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.nedelcu.cosmin.auction.api.auction.event.AuctionRealtimeEvent;
+import org.nedelcu.cosmin.auction.api.auction.dto.AuctionImageResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
+import org.nedelcu.cosmin.auction.api.auction.entity.AuctionImageEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionCloseSummary;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
+import org.nedelcu.cosmin.auction.api.auction.repository.AuctionImageRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.exception.BusinessException;
@@ -27,19 +34,27 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
 public class AuctionService {
 
     private final AuctionRepository auctionRepository;
+    private final AuctionImageRepository auctionImageRepository;
     private final BidRepository bidRepository;
     private final OutboxService outboxService;
     private final AuctionEventBroadcaster auctionEventBroadcaster;
+    private final AuctionMediaStorageService auctionMediaStorageService;
 
     public List<AuctionResponse> findAll() {
-        return auctionRepository.findAll().stream()
-                .map(this::toResponse)
+        List<AuctionEntity> auctions = auctionRepository.findAll();
+        Map<Long, List<AuctionImageResponse>> imagesByAuctionId = loadImagesByAuctionId(
+                auctions.stream().map(AuctionEntity::getId).toList()
+        );
+
+        return auctions.stream()
+                .map(auction -> toResponse(auction, imagesByAuctionId.getOrDefault(auction.getId(), List.of())))
                 .toList();
     }
 
@@ -47,11 +62,16 @@ public class AuctionService {
         AuctionEntity auction = auctionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
-        return toResponse(auction);
+        return toResponse(auction, loadImages(auction.getId()));
     }
 
     @Transactional
     public AuctionResponse create(CreateAuctionRequest request) {
+        return create(request, request.imageUrls());
+    }
+
+    @Transactional
+    public AuctionResponse createWithUploadedImages(CreateAuctionRequest request, List<MultipartFile> imageFiles) {
         OffsetDateTime now = OffsetDateTime.now();
 
         AuctionEntity auction = new AuctionEntity();
@@ -75,7 +95,46 @@ public class AuctionService {
         auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
-        return toResponse(savedAuction);
+        List<String> storedPaths = List.of();
+        try {
+            storedPaths = auctionMediaStorageService.storeAuctionImages(savedAuction.getId(), imageFiles);
+            saveAuctionImages(savedAuction.getId(), storedPaths);
+        } catch (RuntimeException ex) {
+            auctionMediaStorageService.deleteStoredImages(storedPaths);
+            throw ex;
+        }
+
+        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+    }
+
+    @Transactional
+    public AuctionResponse create(CreateAuctionRequest request, List<String> imageUrls) {
+        OffsetDateTime now = OffsetDateTime.now();
+
+        AuctionEntity auction = new AuctionEntity();
+        auction.setTitle(request.title());
+        auction.setDescription(request.description());
+        auction.setStartPrice(request.startPrice());
+        auction.setCurrentPrice(request.startPrice());
+        auction.setMinIncrement(request.minIncrement());
+        auction.setStatus(AuctionStatus.DRAFT);
+        auction.setStartTime(null);
+        auction.setEndTime(request.endTime());
+        auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);
+        auction.setAntiSnipingExtendSec(request.antiSnipingExtendSec() != null ? request.antiSnipingExtendSec() : 30);
+        auction.setCreatedBy(request.createdBy());
+        auction.setWinnerId(null);
+        auction.setWinningBidId(null);
+        auction.setFinalPrice(null);
+        auction.setClosedAt(null);
+        auction.setClosedReason(null);
+        auction.setCreatedAt(now);
+        auction.setUpdatedAt(now);
+
+        AuctionEntity savedAuction = auctionRepository.save(auction);
+        saveAuctionImages(savedAuction.getId(), imageUrls);
+
+        return toResponse(savedAuction, loadImages(savedAuction.getId()));
     }
 
     @Transactional
@@ -97,7 +156,8 @@ public class AuctionService {
         auction.setStartTime(now);
         auction.setUpdatedAt(now);
 
-        return toResponse(auctionRepository.save(auction));
+        AuctionEntity savedAuction = auctionRepository.save(auction);
+        return toResponse(savedAuction, loadImages(savedAuction.getId()));
     }
 
     @Transactional
@@ -121,11 +181,11 @@ public class AuctionService {
         OffsetDateTime now = OffsetDateTime.now();
 
         if (auction.getStatus() != AuctionStatus.RUNNING) {
-            return toResponse(auction);
+            return toResponse(auction, loadImages(auction.getId()));
         }
 
         if (auction.getEndTime() == null || auction.getEndTime().isAfter(now)) {
-            return toResponse(auction);
+            return toResponse(auction, loadImages(auction.getId()));
         }
 
         return closeAuction(auction, now, AuctionCloseReason.EXPIRED);
@@ -207,7 +267,7 @@ public class AuctionService {
                 .toList();
     }
 
-    private AuctionResponse toResponse(AuctionEntity auctionEntity) {
+    private AuctionResponse toResponse(AuctionEntity auctionEntity, List<AuctionImageResponse> images) {
         return new AuctionResponse(
                 auctionEntity.getId(),
                 auctionEntity.getTitle(),
@@ -226,7 +286,16 @@ public class AuctionService {
                 auctionEntity.getFinalPrice(),
                 auctionEntity.getClosedAt(),
                 auctionEntity.getClosedReason(),
+                images,
                 auctionEntity.getVersion()
+        );
+    }
+
+    private AuctionImageResponse toImageResponse(AuctionImageEntity image) {
+        return new AuctionImageResponse(
+                image.getId(),
+                image.getImageUrl(),
+                image.getDisplayOrder()
         );
     }
 
@@ -275,7 +344,7 @@ public class AuctionService {
         );
 
         publishAuctionEvent(savedAuction.getId(), AuctionEventType.AUCTION_CLOSED, auctionClosedEvent, now);
-        return toResponse(savedAuction);
+        return toResponse(savedAuction, loadImages(savedAuction.getId()));
     }
 
     private AuctionCloseSummary resolveCloseSummary(AuctionEntity auction, AuctionCloseReason closedReason) {
@@ -319,5 +388,51 @@ public class AuctionService {
                         occurredAt
                 )
         );
+    }
+
+    private void saveAuctionImages(Long auctionId, List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return;
+        }
+
+        List<AuctionImageEntity> images = new ArrayList<>(imageUrls.size());
+
+        for (int index = 0; index < imageUrls.size(); index++) {
+            String imageUrl = imageUrls.get(index);
+            if (imageUrl == null || imageUrl.isBlank()) {
+                continue;
+            }
+
+            AuctionImageEntity image = new AuctionImageEntity();
+            image.setAuctionId(auctionId);
+            image.setImageUrl(imageUrl.trim());
+            image.setDisplayOrder(index);
+            images.add(image);
+        }
+
+        if (!images.isEmpty()) {
+            auctionImageRepository.saveAll(images);
+        }
+    }
+
+    private Map<Long, List<AuctionImageResponse>> loadImagesByAuctionId(List<Long> auctionIds) {
+        if (auctionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, List<AuctionImageResponse>> imagesByAuctionId = new LinkedHashMap<>();
+        for (AuctionImageEntity image : auctionImageRepository.findByAuctionIdInOrderByAuctionIdAscDisplayOrderAsc(auctionIds)) {
+            imagesByAuctionId
+                    .computeIfAbsent(image.getAuctionId(), ignored -> new ArrayList<>())
+                    .add(toImageResponse(image));
+        }
+
+        return imagesByAuctionId;
+    }
+
+    private List<AuctionImageResponse> loadImages(Long auctionId) {
+        return auctionImageRepository.findByAuctionIdOrderByDisplayOrderAsc(auctionId).stream()
+                .map(this::toImageResponse)
+                .toList();
     }
 }

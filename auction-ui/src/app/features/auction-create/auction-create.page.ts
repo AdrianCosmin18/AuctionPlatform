@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
+import { FileUploadModule } from 'primeng/fileupload';
+import { GalleriaModule } from 'primeng/galleria';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
@@ -21,6 +23,8 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
     ReactiveFormsModule,
     CardModule,
     ButtonModule,
+    FileUploadModule,
+    GalleriaModule,
     InputTextModule,
     InputNumberModule,
     MessageModule,
@@ -29,13 +33,15 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
   templateUrl: './auction-create.page.html',
   styleUrl: './auction-create.page.scss'
 })
-export class AuctionCreatePageComponent {
+export class AuctionCreatePageComponent implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auctionApi = inject(AuctionApiService);
   private readonly router = inject(Router);
 
   loading = false;
   errorMessage: string | null = null;
+  selectedFiles: File[] = [];
+  previewImages: { itemImageSrc: string; thumbnailImageSrc: string; alt: string }[] = [];
 
   readonly auctionForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(255)]],
@@ -47,6 +53,10 @@ export class AuctionCreatePageComponent {
     antiSnipingExtendSec: [30],
     createdBy: [1, [Validators.required, Validators.min(1)]]
   });
+
+  ngOnDestroy(): void {
+    this.revokePreviewUrls();
+  }
 
   submit(): void {
     if (this.auctionForm.invalid) {
@@ -60,7 +70,8 @@ export class AuctionCreatePageComponent {
     const raw = this.auctionForm.getRawValue();
 
     this.auctionApi
-      .createAuction({
+      .createAuctionWithImages(
+        {
         title: raw.title.trim(),
         description: raw.description.trim() || null,
         startPrice: raw.startPrice,
@@ -68,8 +79,11 @@ export class AuctionCreatePageComponent {
         endTime: new Date(raw.endTime).toISOString(),
         antiSnipingWindowSec: raw.antiSnipingWindowSec || null,
         antiSnipingExtendSec: raw.antiSnipingExtendSec || null,
-        createdBy: raw.createdBy
-      })
+        createdBy: raw.createdBy,
+        imageUrls: []
+      },
+        this.selectedFiles
+      )
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: (auction) => {
@@ -79,5 +93,53 @@ export class AuctionCreatePageComponent {
           this.errorMessage = error.error?.detail ?? 'Nu am putut crea licitatia.';
         }
       });
+  }
+
+  onFilesSelected(event: { files: File[] }): void {
+    const incomingFiles = event.files ?? [];
+    const nextFiles = [...this.selectedFiles];
+
+    for (const file of incomingFiles) {
+      if (nextFiles.length >= 5) {
+        break;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        continue;
+      }
+
+      nextFiles.push(file);
+    }
+
+    this.selectedFiles = nextFiles;
+    this.syncPreviewImages();
+  }
+
+  onFileRemoved(event: { file: File }): void {
+    this.selectedFiles = this.selectedFiles.filter((file) => file !== event.file);
+    this.syncPreviewImages();
+  }
+
+  clearSelectedFiles(): void {
+    this.selectedFiles = [];
+    this.syncPreviewImages();
+  }
+
+  private syncPreviewImages(): void {
+    this.revokePreviewUrls();
+    this.previewImages = this.selectedFiles.map((file) => {
+      const objectUrl = URL.createObjectURL(file);
+      return {
+        itemImageSrc: objectUrl,
+        thumbnailImageSrc: objectUrl,
+        alt: file.name
+      };
+    });
+  }
+
+  private revokePreviewUrls(): void {
+    for (const preview of this.previewImages) {
+      URL.revokeObjectURL(preview.itemImageSrc);
+    }
   }
 }

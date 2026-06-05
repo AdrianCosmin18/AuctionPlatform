@@ -39,6 +39,44 @@
               ></textarea>
             </div>
 
+            <div class="form-field form-field--full">
+              <label class="form-label">Product images</label>
+              <p-fileupload
+                name="images[]"
+                mode="advanced"
+                accept="image/*"
+                [multiple]="true"
+                [customUpload]="true"
+                [showUploadButton]="false"
+                [showCancelButton]="false"
+                [maxFileSize]="10000000"
+                chooseLabel="Select images"
+                [fileLimit]="5"
+                (onSelect)="onFilesSelected($event)"
+                (onRemove)="onFileRemoved($event)"
+                (onClear)="clearSelectedFiles()">
+              </p-fileupload>
+              <small class="form-helper">Incarca pana la 5 imagini locale. Prima ramane imaginea principala.</small>
+
+              @if (previewImages.length > 0) {
+                <div class="upload-preview">
+                  <p-galleria
+                    [value]="previewImages"
+                    [showItemNavigators]="previewImages.length > 1"
+                    [showThumbnails]="previewImages.length > 1"
+                    [circular]="previewImages.length > 1"
+                    [containerStyle]="{ 'max-width': '100%' }">
+                    <ng-template pTemplate="item" let-item>
+                      <img [src]="item.itemImageSrc" [alt]="item.alt" class="upload-preview__hero" />
+                    </ng-template>
+                    <ng-template pTemplate="thumbnail" let-item>
+                      <img [src]="item.thumbnailImageSrc" [alt]="item.alt" class="upload-preview__thumb" />
+                    </ng-template>
+                  </p-galleria>
+                </div>
+              }
+            </div>
+
             <div class="form-field">
               <label class="form-label" for="startPrice">Start price</label>
               <p-inputNumber
@@ -121,6 +159,7 @@
           <p>Licitatia se creeaza initial in stare <strong>DRAFT</strong>.</p>
           <p>Fluxul complet ramane: create -> start -> place bid -> live updates -> close sau auto-close.</p>
           <p>Pentru MVP, <strong>createdBy</strong> ramane un id numeric simplu, fara auth.</p>
+          <p>Imaginile sunt incarcate local din dispozitiv si servite ulterior de backend din storage local.</p>
         </div>
       </p-card>
     </div>

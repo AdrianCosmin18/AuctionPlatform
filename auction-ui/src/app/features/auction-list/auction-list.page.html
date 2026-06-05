@@ -39,6 +39,11 @@
 
     @if (featuredAuction) {
       <div class="featured-auction">
+        @if (primaryImage(featuredAuction); as featuredImage) {
+          <div class="featured-auction__media">
+            <img [src]="featuredImage" [alt]="featuredAuction.title" />
+          </div>
+        }
         <div>
           <div class="featured-auction__label">Focus now</div>
           <div class="featured-auction__title">{{ featuredAuction.title }}</div>
@@ -106,6 +111,11 @@
         <ng-template pTemplate="body" let-auction>
           <tr>
             <td class="title-cell">
+              @if (primaryImage(auction); as thumbnailUrl) {
+                <div class="title-cell__media">
+                  <img [src]="thumbnailUrl" [alt]="auction.title" />
+                </div>
+              }
               <div class="title-cell__title">{{ auction.title }}</div>
               <div class="title-cell__meta">
                 <span>#{{ auction.id }}</span>

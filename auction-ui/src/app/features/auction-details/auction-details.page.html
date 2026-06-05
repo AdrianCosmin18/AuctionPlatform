@@ -63,6 +63,28 @@
       <div class="row g-4">
         <div class="col-12 col-xl-8">
           <p-card styleClass="surface-card">
+            @if (vm.auction.images.length > 0) {
+                <div class="gallery-panel">
+                  <div class="gallery-panel__hero">
+                  <img [src]="imageSrc(vm.auction.images[selectedImageIndex].imageUrl)" [alt]="vm.auction.title" />
+                  </div>
+                @if (vm.auction.images.length > 1) {
+                  <div class="gallery-panel__thumbs">
+                    @for (image of vm.auction.images; track image.id; let index = $index) {
+                      <button
+                        type="button"
+                        class="gallery-thumb"
+                        [class.gallery-thumb--active]="index === selectedImageIndex"
+                        (click)="selectImage(index)">
+                        <img [src]="imageSrc(image.imageUrl)" [alt]="vm.auction.title + ' image ' + (index + 1)" />
+                      </button>
+                    }
+                  </div>
+                }
+                <p-divider />
+              </div>
+            }
+
             <div class="auction-meta-grid">
               <div>
                 <span class="meta-label">Auction ID</span>

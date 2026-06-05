@@ -10,6 +10,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { finalize } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionStatus } from '../../core/models/auction-status.type';
 import { AuctionApiService } from '../../core/services/auction-api.service';
@@ -74,6 +75,10 @@ export class AuctionListPageComponent implements OnInit {
       .sort((left, right) => new Date(left.endTime as string).getTime() - new Date(right.endTime as string).getTime());
 
     return running[0] ?? this.auctions[0] ?? null;
+  }
+
+  primaryImage(auction: Auction): string | null {
+    return auction.images[0] ? this.resolveImageUrl(auction.images[0].imageUrl) : null;
   }
 
   get filteredAuctions(): Auction[] {
@@ -189,5 +194,11 @@ export class AuctionListPageComponent implements OnInit {
 
   private replaceAuction(updated: Auction): void {
     this.auctions = this.auctions.map((auction) => (auction.id === updated.id ? updated : auction));
+  }
+
+  private resolveImageUrl(imageUrl: string): string {
+    return imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
+      ? imageUrl
+      : `${environment.wsBaseUrl}${imageUrl}`;
   }
 }

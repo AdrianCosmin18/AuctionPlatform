@@ -26,6 +26,17 @@ export class AuctionApiService {
     return this.http.post<Auction>(this.baseUrl, request);
   }
 
+  createAuctionWithImages(request: CreateAuctionRequest, files: File[]): Observable<Auction> {
+    const formData = new FormData();
+    formData.append('payload', new Blob([JSON.stringify(request)], { type: 'application/json' }));
+
+    for (const file of files) {
+      formData.append('images', file, file.name);
+    }
+
+    return this.http.post<Auction>(this.baseUrl, formData);
+  }
+
   startAuction(id: number): Observable<Auction> {
     return this.http.post<Auction>(`${this.baseUrl}/${id}/start`, {});
   }

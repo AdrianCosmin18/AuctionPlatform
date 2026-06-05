@@ -7,4 +7,5 @@ export interface CreateAuctionRequest {
   antiSnipingWindowSec: number | null;
   antiSnipingExtendSec: number | null;
   createdBy: number;
+  imageUrls: string[];
 }

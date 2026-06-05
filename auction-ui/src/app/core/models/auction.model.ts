@@ -1,4 +1,5 @@
 import { AuctionCloseReason } from './auction-close-reason.type';
+import { AuctionImage } from './auction-image.model';
 import { AuctionStatus } from './auction-status.type';
 
 export interface Auction {
@@ -19,5 +20,6 @@ export interface Auction {
   finalPrice: number | null;
   closedAt: string | null;
   closedReason: AuctionCloseReason | null;
+  images: AuctionImage[];
   version: number;
 }

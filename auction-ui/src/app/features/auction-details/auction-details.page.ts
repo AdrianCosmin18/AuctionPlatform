@@ -14,6 +14,7 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil, timer } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionRealtimeEvent } from '../../core/models/auction-realtime-event.model';
@@ -60,6 +61,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+  selectedImageIndex = 0;
 
   readonly auction$ = new BehaviorSubject<Auction | null>(null);
   readonly bids$ = new BehaviorSubject<Bid[]>([]);
@@ -131,6 +133,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       }
 
       this.auctionId = id;
+      this.selectedImageIndex = 0;
       this.resetState();
       this.connectToAuction(id);
       this.loadSnapshot(id);
@@ -308,6 +311,16 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  selectImage(index: number): void {
+    this.selectedImageIndex = index;
+  }
+
+  imageSrc(imageUrl: string): string {
+    return imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
+      ? imageUrl
+      : `${environment.wsBaseUrl}${imageUrl}`;
+  }
+
   private connectToAuction(auctionId: number): void {
     this.recentEvents$.next([]);
     this.liveSubscription?.unsubscribe();
@@ -408,6 +421,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         next: ({ auction, bids }) => {
           this.auction$.next(auction);
           this.bids$.next(bids);
+          this.selectedImageIndex = 0;
           this.syncBidDefaultAmount();
         },
         error: (error) => {

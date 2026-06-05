@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,11 +19,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
+import org.nedelcu.cosmin.auction.api.auction.entity.AuctionImageEntity;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
 import org.nedelcu.cosmin.auction.api.auction.event.AuctionRealtimeEvent;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
+import org.nedelcu.cosmin.auction.api.auction.repository.AuctionImageRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
@@ -43,6 +46,12 @@ class AuctionServiceTest {
     private BidRepository bidRepository;
 
     @Mock
+    private AuctionImageRepository auctionImageRepository;
+
+    @Mock
+    private AuctionMediaStorageService auctionMediaStorageService;
+
+    @Mock
     private OutboxService outboxService;
 
     @Mock
@@ -56,6 +65,64 @@ class AuctionServiceTest {
 
     @Captor
     private ArgumentCaptor<Object> realtimePayloadCaptor;
+
+    @Captor
+    private ArgumentCaptor<List<AuctionImageEntity>> auctionImagesCaptor;
+
+    @Test
+    void createPersistsOrderedAuctionImagesAndReturnsThemInResponse() {
+        OffsetDateTime endTime = OffsetDateTime.now().plusHours(3);
+        AuctionEntity savedAuction = new AuctionEntity();
+        savedAuction.setId(99L);
+        savedAuction.setTitle("Camera Sony");
+        savedAuction.setDescription("Mirrorless body");
+        savedAuction.setStartPrice(new BigDecimal("500.00"));
+        savedAuction.setCurrentPrice(new BigDecimal("500.00"));
+        savedAuction.setMinIncrement(new BigDecimal("25.00"));
+        savedAuction.setStatus(AuctionStatus.DRAFT);
+        savedAuction.setEndTime(endTime);
+        savedAuction.setAntiSnipingWindowSec(30);
+        savedAuction.setAntiSnipingExtendSec(30);
+        savedAuction.setCreatedBy(1L);
+        savedAuction.setVersion(0L);
+
+        when(auctionRepository.save(any(AuctionEntity.class))).thenReturn(savedAuction);
+        when(auctionImageRepository.findByAuctionIdOrderByDisplayOrderAsc(99L)).thenAnswer(invocation -> {
+            AuctionImageEntity first = new AuctionImageEntity();
+            first.setId(1L);
+            first.setAuctionId(99L);
+            first.setImageUrl("https://img.test/sony-front.jpg");
+            first.setDisplayOrder(0);
+
+            AuctionImageEntity second = new AuctionImageEntity();
+            second.setId(2L);
+            second.setAuctionId(99L);
+            second.setImageUrl("https://img.test/sony-back.jpg");
+            second.setDisplayOrder(1);
+
+            return List.of(first, second);
+        });
+
+        AuctionResponse response = auctionService.create(new org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest(
+                "Camera Sony",
+                "Mirrorless body",
+                new BigDecimal("500.00"),
+                new BigDecimal("25.00"),
+                endTime,
+                30,
+                30,
+                1L,
+                List.of("https://img.test/sony-front.jpg", "https://img.test/sony-back.jpg")
+        ));
+
+        verify(auctionImageRepository).saveAll(auctionImagesCaptor.capture());
+        assertThat(auctionImagesCaptor.getValue()).hasSize(2);
+        assertThat(auctionImagesCaptor.getValue().get(0).getDisplayOrder()).isEqualTo(0);
+        assertThat(auctionImagesCaptor.getValue().get(1).getDisplayOrder()).isEqualTo(1);
+        assertThat(response.images()).hasSize(2);
+        assertThat(response.images().get(0).imageUrl()).isEqualTo("https://img.test/sony-front.jpg");
+        assertThat(response.images().get(1).imageUrl()).isEqualTo("https://img.test/sony-back.jpg");
+    }
 
     @Test
     void placeBidPublishesBidPlacedAndAuctionExtendedWhenInsideAntiSnipingWindow() {
