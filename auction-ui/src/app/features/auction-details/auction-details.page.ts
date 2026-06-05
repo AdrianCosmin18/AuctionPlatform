@@ -3,6 +3,7 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { DividerModule } from 'primeng/divider';
@@ -11,6 +12,7 @@ import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { ToastModule } from 'primeng/toast';
 import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil, timer } from 'rxjs';
 import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
@@ -35,6 +37,7 @@ import { AuctionWsService } from '../../core/services/auction-ws.service';
     InputNumberModule,
     ProgressSpinnerModule,
     MessageModule,
+    ToastModule,
     CurrencyPipe,
     DatePipe
   ],
@@ -46,9 +49,17 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   private readonly api = inject(AuctionApiService);
   private readonly ws = inject(AuctionWsService);
   private readonly fb = inject(FormBuilder);
+  private readonly messageService = inject(MessageService);
   private readonly destroy$ = new Subject<void>();
   private auctionId: number | null = null;
   private liveSubscription?: Subscription;
+  private readonly suppressedRealtimeToasts = new Map<string, number>();
+  private readonly currencyFormatter = new Intl.NumberFormat('ro-RO', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 
   readonly auction$ = new BehaviorSubject<Auction | null>(null);
   readonly bids$ = new BehaviorSubject<Bid[]>([]);
@@ -155,6 +166,8 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         next: (updatedAuction) => {
           this.auction$.next(updatedAuction);
           this.syncBidDefaultAmount();
+          this.suppressRealtimeToast('AUCTION_EXTENDED');
+          this.showToast('success', 'Licitație pornită', 'Licitația acceptă acum bid-uri.');
         },
         error: (error) => {
           this.error$.next(error?.error?.detail ?? 'Pornirea licitatiei a esuat.');
@@ -177,6 +190,8 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (updatedAuction) => {
           this.auction$.next(updatedAuction);
+          this.suppressRealtimeToast('AUCTION_CLOSED');
+          this.showToast('info', 'Licitație închisă', 'Licitația a fost închisă manual.');
         },
         error: (error) => {
           this.error$.next(error?.error?.detail ?? 'Inchiderea licitatiei a esuat.');
@@ -317,6 +332,12 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         this.auction$.next({ ...auction, currentPrice: payload.currentPrice });
         this.bids$.next([nextBid, ...this.bids$.value.filter((bid) => bid.id !== nextBid.id)]);
         this.liveMessage$.next(`Bid nou primit pentru licitatia #${payload.auctionId}.`);
+        this.maybeShowRealtimeToast(
+          'BID_PLACED',
+          'success',
+          'Bid nou',
+          `Bid nou: ${this.formatAmount(payload.amount)}`
+        );
         this.syncBidDefaultAmount();
         break;
       }
@@ -329,6 +350,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
           )
         );
         this.liveMessage$.next('Licitatia a fost extinsa automat.');
+        this.maybeShowRealtimeToast('AUCTION_EXTENDED', 'warn', 'Licitație extinsă', 'Licitația a fost extinsă.');
         break;
       }
       case 'AUCTION_CLOSED': {
@@ -339,6 +361,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
           status: 'ENDED'
         });
         this.liveMessage$.next('Licitatia s-a incheiat.');
+        this.maybeShowRealtimeToast('AUCTION_CLOSED', 'info', 'Licitație închisă', 'Licitația s-a închis.');
         break;
       }
     }
@@ -451,5 +474,41 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     }
 
     return detail ?? 'Bid-ul nu a putut fi plasat.';
+  }
+
+  private showToast(
+    severity: 'success' | 'info' | 'warn' | 'error',
+    summary: string,
+    detail: string
+  ): void {
+    this.messageService.add({
+      severity,
+      summary,
+      detail
+    });
+  }
+
+  private maybeShowRealtimeToast(
+    eventType: 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED',
+    severity: 'success' | 'info' | 'warn' | 'error',
+    summary: string,
+    detail: string
+  ): void {
+    const suppressedUntil = this.suppressedRealtimeToasts.get(eventType) ?? 0;
+
+    if (suppressedUntil > Date.now()) {
+      this.suppressedRealtimeToasts.delete(eventType);
+      return;
+    }
+
+    this.showToast(severity, summary, detail);
+  }
+
+  private suppressRealtimeToast(eventType: 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED'): void {
+    this.suppressedRealtimeToasts.set(eventType, Date.now() + 5000);
+  }
+
+  private formatAmount(amount: number): string {
+    return this.currencyFormatter.format(amount);
   }
 }

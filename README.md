@@ -186,6 +186,7 @@ Frontend-ul suporta:
 - extensie live a countdown-ului la `AUCTION_EXTENDED`
 - actualizare live a pretului si istoricului la `BID_PLACED`
 - dezactivare bid form la `AUCTION_CLOSED` sau la expirarea timpului
+- toast notifications PrimeNG pentru evenimente live si actiuni cheie din `auction-details`
 - panou `Bid history` cu cele mai recente bid-uri
 - panou `Live events` cu evenimentele WebSocket receptionate in timp real
 
@@ -413,6 +414,8 @@ In frontend:
 - la succes, formularul asteapta confirmarea live
 - la `BID_PLACED`, UI-ul actualizeaza `currentPrice` si istoricul local
 - la `AUCTION_EXTENDED`, UI-ul actualizeaza `endTime` si countdown-ul
+- la `BID_PLACED`, `AUCTION_EXTENDED` si `AUCTION_CLOSED`, UI-ul afiseaza toast-uri contextuale
+- la actiunile manuale `Start` si `Close`, UI-ul afiseaza toast-uri dedicate pentru confirmare rapida
 - panoul `Bid history` afiseaza bid-urile cu cel mai nou element sus
 - panoul `Live events` afiseaza cronologic invers evenimentele WebSocket receptionate
 
@@ -762,10 +765,9 @@ Exemple de useri locali folositi in testare:
 Directia fireasca din punctul actual:
 
 1. test runtime end-to-end pentru fluxul `create -> start -> bid -> anti-sniping -> close/auto-close`
-2. toast notifications dedicate pentru evenimente live si actiuni cheie din UI
-3. validari suplimentare in UI pentru formularul de create
-4. tratare mai fina a erorilor backend pe campuri in frontend
-5. teste de integrare end-to-end pentru API + RabbitMQ + worker
-6. dead-letter / retry strategy pe consumer side
-7. notificari reale sau analytics peste `audit_events`
-8. securizare si autentificare pentru endpoint-uri
+2. validari suplimentare in UI pentru formularul de create
+3. tratare mai fina a erorilor backend pe campuri in frontend
+4. teste de integrare end-to-end pentru API + RabbitMQ + worker
+5. dead-letter / retry strategy pe consumer side
+6. notificari reale sau analytics peste `audit_events`
+7. securizare si autentificare pentru endpoint-uri
