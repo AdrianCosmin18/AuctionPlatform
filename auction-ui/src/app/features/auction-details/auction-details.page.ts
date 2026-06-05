@@ -1,6 +1,6 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MessageService } from 'primeng/api';
@@ -88,6 +88,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       };
     })
   );
+
   readonly vm$ = combineLatest({
     auction: this.auction$,
     bids: this.bids$,
@@ -166,8 +167,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         next: (updatedAuction) => {
           this.auction$.next(updatedAuction);
           this.syncBidDefaultAmount();
-          this.suppressRealtimeToast('AUCTION_EXTENDED');
-          this.showToast('success', 'Licitație pornită', 'Licitația acceptă acum bid-uri.');
+          this.showToast('success', 'Licitatie pornita', 'Licitatia accepta acum bid-uri.');
         },
         error: (error) => {
           this.error$.next(error?.error?.detail ?? 'Pornirea licitatiei a esuat.');
@@ -191,7 +191,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         next: (updatedAuction) => {
           this.auction$.next(updatedAuction);
           this.suppressRealtimeToast('AUCTION_CLOSED');
-          this.showToast('info', 'Licitație închisă', 'Licitația a fost închisă manual.');
+          this.showToast('info', 'Licitatie inchisa', 'Licitatia a fost inchisa manual.');
         },
         error: (error) => {
           this.error$.next(error?.error?.detail ?? 'Inchiderea licitatiei a esuat.');
@@ -237,7 +237,6 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
   minimumBid(): number | null {
     const auction = this.auction$.value;
-
     return auction ? Number(auction.currentPrice) + Number(auction.minIncrement) : null;
   }
 
@@ -268,7 +267,9 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       }
       case 'AUCTION_CLOSED': {
         const payload = event.payload as AuctionClosedEvent;
-        return `Final price: ${payload.finalPrice}`;
+        return payload.winnerId
+          ? `Final price: ${payload.finalPrice} · Winner #${payload.winnerId}`
+          : `Final price: ${payload.finalPrice} · No winner`;
       }
       default:
         return '';
@@ -290,6 +291,21 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
   trackEvent(index: number, event: AuctionRealtimeEvent): string {
     return `${event.type}-${event.occurredAt}-${index}`;
+  }
+
+  closeReasonLabel(reason: string | null | undefined): string {
+    switch (reason) {
+      case 'EXPIRED':
+        return 'Expired automatically';
+      case 'MANUAL':
+        return 'Closed manually';
+      case 'BUY_NOW':
+        return 'Closed by Buy Now';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return '-';
+    }
   }
 
   private connectToAuction(auctionId: number): void {
@@ -332,12 +348,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         this.auction$.next({ ...auction, currentPrice: payload.currentPrice });
         this.bids$.next([nextBid, ...this.bids$.value.filter((bid) => bid.id !== nextBid.id)]);
         this.liveMessage$.next(`Bid nou primit pentru licitatia #${payload.auctionId}.`);
-        this.maybeShowRealtimeToast(
-          'BID_PLACED',
-          'success',
-          'Bid nou',
-          `Bid nou: ${this.formatAmount(payload.amount)}`
-        );
+        this.maybeShowRealtimeToast('BID_PLACED', 'success', 'Bid nou', `Bid nou: ${this.formatAmount(payload.amount)}`);
         this.syncBidDefaultAmount();
         break;
       }
@@ -350,7 +361,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
           )
         );
         this.liveMessage$.next('Licitatia a fost extinsa automat.');
-        this.maybeShowRealtimeToast('AUCTION_EXTENDED', 'warn', 'Licitație extinsă', 'Licitația a fost extinsă.');
+        this.maybeShowRealtimeToast('AUCTION_EXTENDED', 'warn', 'Licitatie extinsa', 'Licitatia a fost extinsa.');
         break;
       }
       case 'AUCTION_CLOSED': {
@@ -358,10 +369,15 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         this.auction$.next({
           ...auction,
           currentPrice: payload.finalPrice,
-          status: 'ENDED'
+          status: 'ENDED',
+          winnerId: payload.winnerId,
+          winningBidId: payload.winningBidId,
+          finalPrice: payload.finalPrice,
+          closedAt: payload.closedAt,
+          closedReason: payload.closedReason
         });
         this.liveMessage$.next('Licitatia s-a incheiat.');
-        this.maybeShowRealtimeToast('AUCTION_CLOSED', 'info', 'Licitație închisă', 'Licitația s-a închis.');
+        this.maybeShowRealtimeToast('AUCTION_CLOSED', 'info', 'Licitatie inchisa', 'Licitatia s-a inchis.');
         break;
       }
     }

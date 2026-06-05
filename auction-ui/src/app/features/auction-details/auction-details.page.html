@@ -101,11 +101,41 @@
                   {{ vm.auction.antiSnipingWindowSec ?? 0 }}s / {{ vm.auction.antiSnipingExtendSec ?? 0 }}s
                 </div>
               </div>
+              <div>
+                <span class="meta-label">Winner</span>
+                <div class="meta-value">{{ vm.auction.winnerId ? ('#' + vm.auction.winnerId) : 'No winner yet' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Final price</span>
+                <div class="meta-value">
+                  {{ vm.auction.finalPrice !== null ? (vm.auction.finalPrice | currency: 'EUR' : 'symbol' : '1.2-2') : '-' }}
+                </div>
+              </div>
+              <div>
+                <span class="meta-label">Closed at</span>
+                <div class="meta-value">{{ vm.auction.closedAt ? (vm.auction.closedAt | date: 'medium') : '-' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Close reason</span>
+                <div class="meta-value">{{ closeReasonLabel(vm.auction.closedReason) }}</div>
+              </div>
             </div>
 
             @if (vm.auction.description) {
               <p-divider />
               <p class="mb-0 description-copy">{{ vm.auction.description }}</p>
+            }
+
+            @if (vm.auction.status === 'ENDED') {
+              <p-divider />
+              <p-message
+                severity="info"
+                [text]="
+                  vm.auction.winnerId
+                    ? 'Auction ended. Winner: #' + vm.auction.winnerId + '.'
+                    : 'Auction ended without a winning bid.'
+                "
+              />
             }
 
             <p-divider />

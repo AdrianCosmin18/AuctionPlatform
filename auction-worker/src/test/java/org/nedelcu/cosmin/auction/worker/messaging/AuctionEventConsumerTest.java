@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventEnvelope;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
@@ -71,7 +72,10 @@ class AuctionEventConsumerTest {
         AuctionEventConsumer auctionEventConsumer = new AuctionEventConsumer(auditService, objectMapper);
         AuctionClosedEvent payload = new AuctionClosedEvent(
                 12L,
+                99L,
+                44L,
                 new BigDecimal("300.00"),
+                AuctionCloseReason.MANUAL,
                 OffsetDateTime.now()
         );
 

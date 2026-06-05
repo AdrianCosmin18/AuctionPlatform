@@ -1,3 +1,5 @@
+import { AuctionCloseReason } from './auction-close-reason.type';
+
 export interface BidPlacedEvent {
   auctionId: number;
   bidId: number;
@@ -15,7 +17,10 @@ export interface AuctionExtendedEvent {
 
 export interface AuctionClosedEvent {
   auctionId: number;
+  winnerId: number | null;
+  winningBidId: number | null;
   finalPrice: number;
+  closedReason: AuctionCloseReason;
   closedAt: string;
 }
 

@@ -11,6 +11,7 @@ import org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
+import org.nedelcu.cosmin.auction.api.auction.model.AuctionCloseSummary;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
@@ -20,6 +21,7 @@ import org.nedelcu.cosmin.auction.api.common.outbox.OutboxAggregateType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
@@ -64,6 +66,11 @@ public class AuctionService {
         auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);
         auction.setAntiSnipingExtendSec(request.antiSnipingExtendSec() != null ? request.antiSnipingExtendSec() : 30);
         auction.setCreatedBy(request.createdBy());
+        auction.setWinnerId(null);
+        auction.setWinningBidId(null);
+        auction.setFinalPrice(null);
+        auction.setClosedAt(null);
+        auction.setClosedReason(null);
         auction.setCreatedAt(now);
         auction.setUpdatedAt(now);
 
@@ -103,7 +110,7 @@ public class AuctionService {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        return closeAuction(auction, now);
+        return closeAuction(auction, now, AuctionCloseReason.MANUAL);
     }
 
     @Transactional
@@ -121,7 +128,7 @@ public class AuctionService {
             return toResponse(auction);
         }
 
-        return closeAuction(auction, now);
+        return closeAuction(auction, now, AuctionCloseReason.EXPIRED);
     }
 
     @Transactional
@@ -214,6 +221,11 @@ public class AuctionService {
                 auctionEntity.getAntiSnipingWindowSec(),
                 auctionEntity.getAntiSnipingExtendSec(),
                 auctionEntity.getCreatedBy(),
+                auctionEntity.getWinnerId(),
+                auctionEntity.getWinningBidId(),
+                auctionEntity.getFinalPrice(),
+                auctionEntity.getClosedAt(),
+                auctionEntity.getClosedReason(),
                 auctionEntity.getVersion()
         );
     }
@@ -241,19 +253,50 @@ public class AuctionService {
         return !now.isBefore(extensionThreshold);
     }
 
-    private AuctionResponse closeAuction(AuctionEntity auction, OffsetDateTime now) {
+    private AuctionResponse closeAuction(AuctionEntity auction, OffsetDateTime now, AuctionCloseReason closedReason) {
+        AuctionCloseSummary closeSummary = resolveCloseSummary(auction, closedReason);
+
         auction.setStatus(AuctionStatus.ENDED);
+        auction.setWinnerId(closeSummary.winnerId());
+        auction.setWinningBidId(closeSummary.winningBidId());
+        auction.setFinalPrice(closeSummary.finalPrice());
+        auction.setClosedAt(now);
+        auction.setClosedReason(closeSummary.closedReason());
         auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
         AuctionClosedEvent auctionClosedEvent = new AuctionClosedEvent(
                 savedAuction.getId(),
-                savedAuction.getCurrentPrice(),
+                savedAuction.getWinnerId(),
+                savedAuction.getWinningBidId(),
+                savedAuction.getFinalPrice(),
+                savedAuction.getClosedReason(),
                 now
         );
 
         publishAuctionEvent(savedAuction.getId(), AuctionEventType.AUCTION_CLOSED, auctionClosedEvent, now);
         return toResponse(savedAuction);
+    }
+
+    private AuctionCloseSummary resolveCloseSummary(AuctionEntity auction, AuctionCloseReason closedReason) {
+        BidEntity winningBid = bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auction.getId())
+                .orElse(null);
+
+        if (winningBid == null) {
+            return new AuctionCloseSummary(
+                    null,
+                    null,
+                    auction.getCurrentPrice(),
+                    closedReason
+            );
+        }
+
+        return new AuctionCloseSummary(
+                winningBid.getBidderId(),
+                winningBid.getId(),
+                winningBid.getAmount(),
+                closedReason
+        );
     }
 
     private void publishAuctionEvent(

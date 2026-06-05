@@ -1,3 +1,4 @@
+import { AuctionCloseReason } from './auction-close-reason.type';
 import { AuctionStatus } from './auction-status.type';
 
 export interface Auction {
@@ -13,5 +14,10 @@ export interface Auction {
   antiSnipingWindowSec: number | null;
   antiSnipingExtendSec: number | null;
   createdBy: number;
+  winnerId: number | null;
+  winningBidId: number | null;
+  finalPrice: number | null;
+  closedAt: string | null;
+  closedReason: AuctionCloseReason | null;
   version: number;
 }

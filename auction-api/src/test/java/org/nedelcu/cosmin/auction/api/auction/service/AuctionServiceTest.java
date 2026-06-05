@@ -28,6 +28,7 @@ import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
@@ -105,16 +106,32 @@ class AuctionServiceTest {
         Long auctionId = 20L;
         AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusMinutes(1), 30, 30);
         auction.setCurrentPrice(new BigDecimal("310.00"));
+        BidEntity winningBid = new BidEntity();
+        winningBid.setId(77L);
+        winningBid.setAuctionId(auctionId);
+        winningBid.setBidderId(901L);
+        winningBid.setAmount(new BigDecimal("310.00"));
 
         when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auctionId))
+                .thenReturn(Optional.of(winningBid));
         when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AuctionResponse response = auctionService.close(auctionId);
 
         assertThat(response.status()).isEqualTo(AuctionStatus.ENDED);
+        assertThat(response.winnerId()).isEqualTo(901L);
+        assertThat(response.winningBidId()).isEqualTo(77L);
+        assertThat(response.finalPrice()).isEqualByComparingTo("310.00");
+        assertThat(response.closedReason()).isEqualTo(AuctionCloseReason.MANUAL);
 
         verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
         assertThat(outboxPayloadCaptor.getValue()).isInstanceOf(AuctionClosedEvent.class);
+        AuctionClosedEvent closedEvent = (AuctionClosedEvent) outboxPayloadCaptor.getValue();
+        assertThat(closedEvent.winnerId()).isEqualTo(901L);
+        assertThat(closedEvent.winningBidId()).isEqualTo(77L);
+        assertThat(closedEvent.finalPrice()).isEqualByComparingTo("310.00");
+        assertThat(closedEvent.closedReason()).isEqualTo(AuctionCloseReason.MANUAL);
 
         verify(auctionEventBroadcaster).broadcastToAuction(any(), realtimePayloadCaptor.capture());
         AuctionRealtimeEvent<?> realtimeEvent = (AuctionRealtimeEvent<?>) realtimePayloadCaptor.getValue();
@@ -129,11 +146,16 @@ class AuctionServiceTest {
         auction.setCurrentPrice(new BigDecimal("415.00"));
 
         when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auctionId))
+                .thenReturn(Optional.empty());
         when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AuctionResponse response = auctionService.closeExpiredAuction(auctionId);
 
         assertThat(response.status()).isEqualTo(AuctionStatus.ENDED);
+        assertThat(response.winnerId()).isNull();
+        assertThat(response.finalPrice()).isEqualByComparingTo("415.00");
+        assertThat(response.closedReason()).isEqualTo(AuctionCloseReason.EXPIRED);
         verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
         assertThat(outboxPayloadCaptor.getValue()).isInstanceOf(AuctionClosedEvent.class);
         verify(auctionEventBroadcaster).broadcastToAuction(any(), any(AuctionRealtimeEvent.class));

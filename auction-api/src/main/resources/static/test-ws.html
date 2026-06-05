@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auction WS Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            max-width: 960px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        input {
+            padding: 0.5rem;
+            min-width: 220px;
+        }
+
+        button {
+            padding: 0.5rem 0.9rem;
+            cursor: pointer;
+        }
+
+        pre {
+            background: #111827;
+            color: #e5e7eb;
+            padding: 1rem;
+            border-radius: 6px;
+            min-height: 320px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+<h1>Auction WebSocket Test</h1>
+
+<div class="controls">
+    <label for="backendUrl">Backend URL</label>
+    <input id="backendUrl" type="url" value="http://localhost:8080" placeholder="http://localhost:8080">
+    <label for="auctionId">Auction ID</label>
+    <input id="auctionId" type="number" min="1" placeholder="e.g. 1">
+    <button type="button" onclick="connect()">Connect</button>
+    <button type="button" onclick="disconnect()">Disconnect</button>
+    <button type="button" onclick="clearLogs()">Clear</button>
+</div>
+
+<p>Subscribe target: <code>/topic/auctions/{auctionId}</code></p>
+
+<h2>Events</h2>
+<pre id="events"></pre>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script>
+    let stompClient = null;
+    let subscription = null;
+
+    function connect() {
+        const backendUrl = document.getElementById("backendUrl").value.trim().replace(/\/$/, "");
+        const auctionId = document.getElementById("auctionId").value.trim();
+
+        if (!backendUrl) {
+            alert("Enter the backend URL.");
+            return;
+        }
+
+        if (!auctionId) {
+            alert("Enter an auction ID.");
+            return;
+        }
+
+        disconnect(false);
+
+        const socket = new SockJS(backendUrl + "/ws");
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+
+        stompClient.connect({}, function () {
+            log("Connected.");
+            subscription = stompClient.subscribe("/topic/auctions/" + auctionId, function (message) {
+                logJson(message.body);
+            });
+            log("Subscribed to /topic/auctions/" + auctionId);
+        }, function (error) {
+            log("Connection error: " + error);
+        });
+    }
+
+    function disconnect(logMessage = true) {
+        if (subscription) {
+            subscription.unsubscribe();
+            subscription = null;
+        }
+
+        if (stompClient) {
+            stompClient.disconnect(function () {
+                if (logMessage) {
+                    log("Disconnected.");
+                }
+            });
+            stompClient = null;
+        } else if (logMessage) {
+            log("No active connection.");
+        }
+    }
+
+    function clearLogs() {
+        document.getElementById("events").textContent = "";
+    }
+
+    function log(message) {
+        const events = document.getElementById("events");
+        events.textContent += "[" + new Date().toISOString() + "] " + message + "\n\n";
+        events.scrollTop = events.scrollHeight;
+    }
+
+    function logJson(messageBody) {
+        try {
+            const parsed = JSON.parse(messageBody);
+            log(JSON.stringify(parsed, null, 2));
+        } catch (error) {
+            log(messageBody);
+        }
+    }
+</script>
+</body>
+</html>

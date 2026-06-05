@@ -187,6 +187,7 @@ Frontend-ul suporta:
 - actualizare live a pretului si istoricului la `BID_PLACED`
 - dezactivare bid form la `AUCTION_CLOSED` sau la expirarea timpului
 - toast notifications PrimeNG pentru evenimente live si actiuni cheie din `auction-details`
+- afisare rezultat final pentru licitatiile inchise: winner, winning bid, final price, close reason, closed at
 - panou `Bid history` cu cele mai recente bid-uri
 - panou `Live events` cu evenimentele WebSocket receptionate in timp real
 
@@ -280,6 +281,11 @@ Retine starea curenta a licitatiei:
 - `status`: `DRAFT`, `RUNNING`, `ENDED`
 - `current_price`
 - `end_time`
+- `winner_id`
+- `winning_bid_id`
+- `final_price`
+- `closed_at`
+- `closed_reason`
 - `anti_sniping_window_sec`
 - `anti_sniping_extend_sec`
 - `version`
@@ -429,6 +435,8 @@ Aplicatia:
 
 - incarca licitatia cu `PESSIMISTIC_WRITE`
 - verifica sa fie `RUNNING`
+- determina bid-ul castigator, daca exista
+- seteaza `winnerId`, `winningBidId`, `finalPrice`, `closedAt`, `closedReason = MANUAL`
 - seteaza statusul `ENDED`
 - salveaza evenimentul `AUCTION_CLOSED` in `outbox_events`
 - trimite `AUCTION_CLOSED` pe WebSocket
@@ -437,6 +445,7 @@ In frontend:
 
 - butonul `Close` este disponibil pentru licitatiile `RUNNING`
 - dupa inchidere, bid form devine dezactivat
+- pagina de detalii afiseaza rezultatul final al licitatiei, inclusiv castigatorul daca exista
 
 ### 5. Auto-close auction
 
@@ -446,6 +455,8 @@ Aplicatia:
 
 - selecteaza ID-urile licitatiilor expirate
 - reincarca fiecare licitatie cu `PESSIMISTIC_WRITE`
+- determina bid-ul castigator, daca exista
+- seteaza `winnerId`, `winningBidId`, `finalPrice`, `closedAt`, `closedReason = EXPIRED`
 - o marcheaza `ENDED`
 - salveaza evenimentul `AUCTION_CLOSED` in `outbox_events`
 - trimite evenimentul `AUCTION_CLOSED` si pe WebSocket
@@ -455,6 +466,7 @@ In frontend:
 - countdown-ul ajunge la zero
 - formularul de bid este blocat imediat in UI
 - dupa `AUCTION_CLOSED`, statusul devine `ENDED`
+- UI-ul actualizeaza live si sumarul de inchidere
 
 ## Reguli de business
 
@@ -666,6 +678,11 @@ Frontend-ul consuma un model stabil care include:
 - `antiSnipingWindowSec`
 - `antiSnipingExtendSec`
 - `createdBy`
+- `winnerId`
+- `winningBidId`
+- `finalPrice`
+- `closedAt`
+- `closedReason`
 - `version`
 
 ### `BidResponse`
@@ -722,9 +739,10 @@ Tipurile de evenimente folosite in UI sunt:
 2. `endTime` trece
 3. `AuctionScheduler` detecteaza licitatia expirata
 4. sistemul o marcheaza `ENDED`
-5. se salveaza `AUCTION_CLOSED`
-6. evenimentul este publicat in RabbitMQ
-7. worker-ul il persista in `audit_events`
+5. sistemul determina winner-ul si sumarul final daca exista bids
+6. se salveaza `AUCTION_CLOSED`
+7. evenimentul este publicat in RabbitMQ
+8. worker-ul il persista in `audit_events`
 
 ### Scenariul 4: creare si administrare completa din UI
 

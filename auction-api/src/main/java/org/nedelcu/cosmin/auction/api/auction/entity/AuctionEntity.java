@@ -15,6 +15,7 @@ import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.Setter;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
+import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 
 @Entity
 @Table(name = "auctions")
@@ -57,6 +58,22 @@ public class AuctionEntity {
 
     @Column(name = "created_by")
     private Long createdBy;
+
+    @Column(name = "winner_id")
+    private Long winnerId;
+
+    @Column(name = "winning_bid_id")
+    private Long winningBidId;
+
+    @Column(name = "final_price")
+    private BigDecimal finalPrice;
+
+    @Column(name = "closed_at")
+    private OffsetDateTime closedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "closed_reason")
+    private AuctionCloseReason closedReason;
 
     @Version
     private Long version;
