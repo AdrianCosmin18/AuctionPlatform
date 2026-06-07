@@ -7,6 +7,7 @@ import { CardModule } from 'primeng/card';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { finalize } from 'rxjs';
@@ -29,6 +30,7 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
     ButtonModule,
     InputTextModule,
     ProgressSpinnerModule,
+    SelectModule,
     MessageModule,
     CurrencyPipe,
     DatePipe
@@ -41,6 +43,7 @@ export class AuctionListPageComponent implements OnInit {
 
   auctions: Auction[] = [];
   readonly categories = AUCTION_CATEGORIES;
+  readonly categoryFilterOptions = [{ code: 'ALL', label: 'Toate categoriile' }, ...AUCTION_CATEGORIES];
   statusFilter: 'ALL' | AuctionStatus = 'ALL';
   categoryFilter = 'ALL';
   searchTerm = '';

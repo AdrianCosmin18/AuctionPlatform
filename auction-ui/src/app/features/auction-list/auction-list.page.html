@@ -1,4 +1,4 @@
-<section class="page-section">
+ï»¿<section class="page-section">
   <section class="overview-hero mb-4">
     <div class="overview-hero__content">
       <div>
@@ -48,8 +48,8 @@
           <div class="featured-auction__label">In focus</div>
           <div class="featured-auction__title">{{ featuredAuction.title }}</div>
           <div class="featured-auction__copy">
-            {{ categoryLabel(featuredAuction.categoryCode) }} · #{{ featuredAuction.id }} · {{ featuredAuction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}
-            · {{ featuredAuction.endTime ? (featuredAuction.endTime | date: 'medium') : 'Fara termen de inchidere' }}
+            {{ categoryLabel(featuredAuction.categoryCode) }} Â· #{{ featuredAuction.id }} Â· {{ featuredAuction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}
+            Â· {{ featuredAuction.endTime ? (featuredAuction.endTime | date: 'medium') : 'Fara termen de inchidere' }}
           </div>
         </div>
         <a pButton [routerLink]="['/auctions', featuredAuction.id]" icon="pi pi-arrow-right" label="Deschide lotul" severity="contrast"></a>
@@ -73,12 +73,15 @@
           <input pInputText type="text" placeholder="Cauta dupa titlu, categorie sau autor" [(ngModel)]="searchTerm" class="w-100" />
         </span>
 
-        <select class="form-control filters-select" [(ngModel)]="categoryFilter">
-          <option value="ALL">Toate categoriile</option>
-          @for (category of categories; track category.code) {
-            <option [value]="category.code">{{ category.label }}</option>
-          }
-        </select>
+        <p-select
+          [options]="categoryFilterOptions"
+          [(ngModel)]="categoryFilter"
+          optionLabel="label"
+          optionValue="code"
+          placeholder="Filtreaza dupa categorie"
+          appendTo="body"
+          styleClass="filters-select"
+        />
 
         <div class="status-filters">
           <p-button label="All" [outlined]="statusFilter !== 'ALL'" (onClick)="setStatusFilter('ALL')" />

@@ -41,20 +41,30 @@
 
             <div class="form-field">
               <label class="form-label" for="categoryCode">Categorie</label>
-              <select id="categoryCode" class="form-control" formControlName="categoryCode">
-                @for (category of categories; track category.code) {
-                  <option [value]="category.code">{{ category.label }}</option>
-                }
-              </select>
+              <p-select
+                inputId="categoryCode"
+                formControlName="categoryCode"
+                [options]="categories"
+                optionLabel="label"
+                optionValue="code"
+                placeholder="Selecteaza categoria"
+                appendTo="body"
+                styleClass="w-100"
+              />
             </div>
 
             <div class="form-field">
               <label class="form-label" for="subcategoryCode">Subcategorie</label>
-              <select id="subcategoryCode" class="form-control" formControlName="subcategoryCode">
-                @for (subcategory of availableSubcategories; track subcategory.code) {
-                  <option [value]="subcategory.code">{{ subcategory.label }}</option>
-                }
-              </select>
+              <p-select
+                inputId="subcategoryCode"
+                formControlName="subcategoryCode"
+                [options]="availableSubcategories"
+                optionLabel="label"
+                optionValue="code"
+                placeholder="Selecteaza subcategoria"
+                appendTo="body"
+                styleClass="w-100"
+              />
             </div>
 
             @if (selectedCategory) {
@@ -87,20 +97,30 @@
 
             <div class="form-field">
               <label class="form-label" for="itemCondition">Stare de conservare</label>
-              <select id="itemCondition" class="form-control" formControlName="itemCondition">
-                @for (condition of itemConditions; track condition.code) {
-                  <option [value]="condition.code">{{ condition.label }}</option>
-                }
-              </select>
+              <p-select
+                inputId="itemCondition"
+                formControlName="itemCondition"
+                [options]="itemConditions"
+                optionLabel="label"
+                optionValue="code"
+                placeholder="Selecteaza starea"
+                appendTo="body"
+                styleClass="w-100"
+              />
             </div>
 
             <div class="form-field">
               <label class="form-label" for="authenticityStatus">Autenticitate</label>
-              <select id="authenticityStatus" class="form-control" formControlName="authenticityStatus">
-                @for (status of authenticityStatuses; track status.code) {
-                  <option [value]="status.code">{{ status.label }}</option>
-                }
-              </select>
+              <p-select
+                inputId="authenticityStatus"
+                formControlName="authenticityStatus"
+                [options]="authenticityStatuses"
+                optionLabel="label"
+                optionValue="code"
+                placeholder="Selecteaza statusul"
+                appendTo="body"
+                styleClass="w-100"
+              />
             </div>
 
             <div class="form-field form-field--full">

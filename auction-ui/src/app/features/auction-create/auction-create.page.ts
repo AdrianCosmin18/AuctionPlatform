@@ -8,6 +8,7 @@ import { CardModule } from 'primeng/card';
 import { FileUploadModule } from 'primeng/fileupload';
 import { GalleriaModule } from 'primeng/galleria';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -28,6 +29,7 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
     GalleriaModule,
     InputTextModule,
     InputNumberModule,
+    SelectModule,
     MessageModule,
     ProgressSpinnerModule
   ],
