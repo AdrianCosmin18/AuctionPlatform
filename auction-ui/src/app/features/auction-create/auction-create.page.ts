@@ -12,6 +12,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { finalize } from 'rxjs';
+import { AUTHENTICITY_STATUSES, AUCTION_CATEGORIES, ITEM_CONDITIONS, findCategoryByCode } from '../../core/constants/auction-taxonomy';
 import { AuctionApiService } from '../../core/services/auction-api.service';
 
 @Component({
@@ -42,10 +43,21 @@ export class AuctionCreatePageComponent implements OnDestroy {
   errorMessage: string | null = null;
   selectedFiles: File[] = [];
   previewImages: { itemImageSrc: string; thumbnailImageSrc: string; alt: string }[] = [];
+  readonly categories = AUCTION_CATEGORIES;
+  readonly itemConditions = ITEM_CONDITIONS;
+  readonly authenticityStatuses = AUTHENTICITY_STATUSES;
 
   readonly auctionForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(255)]],
     description: [''],
+    categoryCode: ['HISTORICAL_DOCUMENTS', [Validators.required]],
+    subcategoryCode: ['OFFICIAL_ACTS'],
+    creatorAuthor: [''],
+    estimatedYear: [1900],
+    languageCode: ['Romanian'],
+    itemCondition: ['GOOD'],
+    authenticityStatus: ['UNVERIFIED'],
+    provenance: [''],
     startPrice: [100, [Validators.required, Validators.min(0.01)]],
     minIncrement: [10, [Validators.required, Validators.min(0.01)]],
     endTime: ['', [Validators.required]],
@@ -53,6 +65,26 @@ export class AuctionCreatePageComponent implements OnDestroy {
     antiSnipingExtendSec: [30],
     createdBy: [1, [Validators.required, Validators.min(1)]]
   });
+
+  constructor() {
+    this.auctionForm.controls.categoryCode.valueChanges.subscribe(() => {
+      const isCurrentSubcategoryValid = this.availableSubcategories.some(
+        (subcategory) => subcategory.code === this.auctionForm.controls.subcategoryCode.value
+      );
+
+      if (!isCurrentSubcategoryValid) {
+        this.auctionForm.controls.subcategoryCode.setValue(this.availableSubcategories[0]?.code ?? '');
+      }
+    });
+  }
+
+  get selectedCategory() {
+    return findCategoryByCode(this.auctionForm.controls.categoryCode.value);
+  }
+
+  get availableSubcategories() {
+    return this.selectedCategory?.subcategories ?? [];
+  }
 
   ngOnDestroy(): void {
     this.revokePreviewUrls();
@@ -72,16 +104,24 @@ export class AuctionCreatePageComponent implements OnDestroy {
     this.auctionApi
       .createAuctionWithImages(
         {
-        title: raw.title.trim(),
-        description: raw.description.trim() || null,
-        startPrice: raw.startPrice,
-        minIncrement: raw.minIncrement,
-        endTime: new Date(raw.endTime).toISOString(),
-        antiSnipingWindowSec: raw.antiSnipingWindowSec || null,
-        antiSnipingExtendSec: raw.antiSnipingExtendSec || null,
-        createdBy: raw.createdBy,
-        imageUrls: []
-      },
+          title: raw.title.trim(),
+          description: raw.description.trim() || null,
+          categoryCode: raw.categoryCode,
+          subcategoryCode: raw.subcategoryCode || null,
+          creatorAuthor: raw.creatorAuthor.trim() || null,
+          estimatedYear: raw.estimatedYear || null,
+          languageCode: raw.languageCode.trim() || null,
+          itemCondition: raw.itemCondition || null,
+          authenticityStatus: raw.authenticityStatus || null,
+          provenance: raw.provenance.trim() || null,
+          startPrice: raw.startPrice,
+          minIncrement: raw.minIncrement,
+          endTime: new Date(raw.endTime).toISOString(),
+          antiSnipingWindowSec: raw.antiSnipingWindowSec || null,
+          antiSnipingExtendSec: raw.antiSnipingExtendSec || null,
+          createdBy: raw.createdBy,
+          imageUrls: []
+        },
         this.selectedFiles
       )
       .pipe(finalize(() => (this.loading = false)))

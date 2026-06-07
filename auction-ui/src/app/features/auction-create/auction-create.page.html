@@ -3,11 +3,11 @@
     <div>
       <a routerLink="/auctions" class="back-link">
         <i class="pi pi-arrow-left"></i>
-        <span>Back to auctions</span>
+        <span>Back to archive auctions</span>
       </a>
-      <div class="section-kicker">Auction setup</div>
-      <h1 class="page-title mb-1">Create auction</h1>
-      <p class="page-subtitle mb-0">Defineste rapid o licitatie noua pentru fluxurile de test si operare din UI.</p>
+      <div class="section-kicker">Catalogare lot cultural</div>
+      <h1 class="page-title mb-1">Adauga un document sau volum de colectie</h1>
+      <p class="page-subtitle mb-0">Descrie lotul, clasificarea si starea de conservare inainte de pornirea licitatiei.</p>
     </div>
   </section>
 
@@ -21,7 +21,7 @@
         <form class="create-form" [formGroup]="auctionForm" (ngSubmit)="submit()">
           <div class="form-grid">
             <div class="form-field form-field--full">
-              <label class="form-label" for="title">Title</label>
+              <label class="form-label" for="title">Titlu lot</label>
               <input id="title" type="text" pInputText formControlName="title" class="w-100" />
               @if (auctionForm.controls.title.touched && auctionForm.controls.title.errors?.['required']) {
                 <small class="field-error">Titlul este obligatoriu.</small>
@@ -29,18 +29,93 @@
             </div>
 
             <div class="form-field form-field--full">
-              <label class="form-label" for="description">Description</label>
+              <label class="form-label" for="description">Descriere</label>
               <textarea
                 id="description"
                 class="form-control"
                 rows="4"
                 formControlName="description"
-                placeholder="Detalii scurte despre lot, stare, context."
+                placeholder="Descrie pe scurt obiectul, contextul istoric si elementele relevante pentru colectionari."
+              ></textarea>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="categoryCode">Categorie</label>
+              <select id="categoryCode" class="form-control" formControlName="categoryCode">
+                @for (category of categories; track category.code) {
+                  <option [value]="category.code">{{ category.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="subcategoryCode">Subcategorie</label>
+              <select id="subcategoryCode" class="form-control" formControlName="subcategoryCode">
+                @for (subcategory of availableSubcategories; track subcategory.code) {
+                  <option [value]="subcategory.code">{{ subcategory.label }}</option>
+                }
+              </select>
+            </div>
+
+            @if (selectedCategory) {
+              <div class="form-field form-field--full taxonomy-callout">
+                <strong>{{ selectedCategory.label }}</strong>
+                <span>{{ selectedCategory.description }}</span>
+              </div>
+            }
+
+            <div class="form-field">
+              <label class="form-label" for="creatorAuthor">Autor / creator</label>
+              <input id="creatorAuthor" type="text" pInputText formControlName="creatorAuthor" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="estimatedYear">An estimativ</label>
+              <p-inputNumber
+                inputId="estimatedYear"
+                formControlName="estimatedYear"
+                [useGrouping]="false"
+                styleClass="w-100"
+                inputStyleClass="w-100"
+              />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="languageCode">Limba</label>
+              <input id="languageCode" type="text" pInputText formControlName="languageCode" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="itemCondition">Stare de conservare</label>
+              <select id="itemCondition" class="form-control" formControlName="itemCondition">
+                @for (condition of itemConditions; track condition.code) {
+                  <option [value]="condition.code">{{ condition.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="authenticityStatus">Autenticitate</label>
+              <select id="authenticityStatus" class="form-control" formControlName="authenticityStatus">
+                @for (status of authenticityStatuses; track status.code) {
+                  <option [value]="status.code">{{ status.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="form-field form-field--full">
+              <label class="form-label" for="provenance">Provenienta</label>
+              <textarea
+                id="provenance"
+                class="form-control"
+                rows="3"
+                formControlName="provenance"
+                placeholder="Ex: colectie privata, arhiva familiala, librarie anticara."
               ></textarea>
             </div>
 
             <div class="form-field form-field--full">
-              <label class="form-label">Product images</label>
+              <label class="form-label">Imagini lot</label>
               <p-fileupload
                 name="images[]"
                 mode="advanced"
@@ -50,13 +125,13 @@
                 [showUploadButton]="false"
                 [showCancelButton]="false"
                 [maxFileSize]="10000000"
-                chooseLabel="Select images"
+                chooseLabel="Selecteaza imagini"
                 [fileLimit]="5"
                 (onSelect)="onFilesSelected($event)"
                 (onRemove)="onFileRemoved($event)"
                 (onClear)="clearSelectedFiles()">
               </p-fileupload>
-              <small class="form-helper">Incarca pana la 5 imagini locale. Prima ramane imaginea principala.</small>
+              <small class="form-helper">Incarca pana la 5 imagini locale. Prima ramane imaginea principala a lotului.</small>
 
               @if (previewImages.length > 0) {
                 <div class="upload-preview">
@@ -78,7 +153,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="startPrice">Start price</label>
+              <label class="form-label" for="startPrice">Pret de pornire</label>
               <p-inputNumber
                 inputId="startPrice"
                 formControlName="startPrice"
@@ -91,7 +166,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="minIncrement">Min increment</label>
+              <label class="form-label" for="minIncrement">Increment minim</label>
               <p-inputNumber
                 inputId="minIncrement"
                 formControlName="minIncrement"
@@ -104,15 +179,15 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="endTime">End time</label>
+              <label class="form-label" for="endTime">Timp inchidere</label>
               <input id="endTime" type="datetime-local" class="form-control" formControlName="endTime" />
               @if (auctionForm.controls.endTime.touched && auctionForm.controls.endTime.errors?.['required']) {
-                <small class="field-error">End time este obligatoriu.</small>
+                <small class="field-error">Timpul de inchidere este obligatoriu.</small>
               }
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="createdBy">Created by</label>
+              <label class="form-label" for="createdBy">ID vanzator</label>
               <p-inputNumber
                 inputId="createdBy"
                 formControlName="createdBy"
@@ -123,7 +198,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="antiSnipingWindowSec">Anti-sniping window (sec)</label>
+              <label class="form-label" for="antiSnipingWindowSec">Fereastra anti-sniping (sec)</label>
               <p-inputNumber
                 inputId="antiSnipingWindowSec"
                 formControlName="antiSnipingWindowSec"
@@ -134,7 +209,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="antiSnipingExtendSec">Anti-sniping extend (sec)</label>
+              <label class="form-label" for="antiSnipingExtendSec">Extensie anti-sniping (sec)</label>
               <p-inputNumber
                 inputId="antiSnipingExtendSec"
                 formControlName="antiSnipingExtendSec"
@@ -146,20 +221,20 @@
           </div>
 
           <div class="form-actions">
-            <a pButton routerLink="/auctions" label="Cancel" severity="secondary" [outlined]="true"></a>
-            <p-button type="submit" icon="pi pi-plus" label="Create auction" [loading]="loading" />
+            <a pButton routerLink="/auctions" label="Anuleaza" severity="secondary" [outlined]="true"></a>
+            <p-button type="submit" icon="pi pi-plus" label="Creeaza licitatia" [loading]="loading" />
           </div>
         </form>
       </p-card>
     </div>
 
     <div class="col-12 col-xl-4">
-      <p-card header="Notes" styleClass="surface-card">
+      <p-card header="Note curatoriale" styleClass="surface-card">
         <div class="notes-copy">
           <p>Licitatia se creeaza initial in stare <strong>DRAFT</strong>.</p>
-          <p>Fluxul complet ramane: create -> start -> place bid -> live updates -> close sau auto-close.</p>
+          <p>Lotul trebuie clasificat intr-o categorie si subcategorie tematica, nu ca produs generic.</p>
           <p>Pentru MVP, <strong>createdBy</strong> ramane un id numeric simplu, fara auth.</p>
-          <p>Imaginile sunt incarcate local din dispozitiv si servite ulterior de backend din storage local.</p>
+          <p>Imaginile sunt incarcate local si servite ulterior de backend din storage local.</p>
         </div>
       </p-card>
     </div>

@@ -14,6 +14,7 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil, timer } from 'rxjs';
+import { AUTHENTICITY_STATUSES, ITEM_CONDITIONS, findCategoryByCode, findOptionLabel } from '../../core/constants/auction-taxonomy';
 import { environment } from '../../../environments/environment';
 import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
@@ -319,6 +320,26 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     return imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
       ? imageUrl
       : `${environment.wsBaseUrl}${imageUrl}`;
+  }
+
+  categoryLabel(code: string | null | undefined): string {
+    return findCategoryByCode(code)?.label ?? 'Necategorizat';
+  }
+
+  subcategoryLabel(auction: Auction | null): string | null {
+    if (!auction) {
+      return null;
+    }
+
+    return findCategoryByCode(auction.categoryCode)?.subcategories.find((subcategory) => subcategory.code === auction.subcategoryCode)?.label ?? null;
+  }
+
+  itemConditionLabel(code: string | null | undefined): string | null {
+    return findOptionLabel(ITEM_CONDITIONS, code);
+  }
+
+  authenticityLabel(code: string | null | undefined): string | null {
+    return findOptionLabel(AUTHENTICITY_STATUSES, code);
   }
 
   private connectToAuction(auctionId: number): void {

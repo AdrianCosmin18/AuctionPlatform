@@ -39,6 +39,11 @@
   min-width: min(100%, 18rem);
 }
 
+.filters-select {
+  flex: 0 1 16rem;
+  min-width: min(100%, 16rem);
+}
+
 .status-filters {
   display: flex;
   gap: 0.75rem;
@@ -179,6 +184,20 @@
   color: #475569;
   font-size: 0.92rem;
   line-height: 1.5;
+}
+
+.category-cell {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.category-cell strong {
+  color: #0f172a;
+}
+
+.category-cell span,
+.category-cell small {
+  color: #64748b;
 }
 
 .price-cell__value {

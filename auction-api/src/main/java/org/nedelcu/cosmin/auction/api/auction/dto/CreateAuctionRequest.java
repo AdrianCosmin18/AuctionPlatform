@@ -16,6 +16,32 @@ public record CreateAuctionRequest(
 
         String description,
 
+        @NotBlank
+        @Size(max = 80)
+        String categoryCode,
+
+        @Size(max = 80)
+        String subcategoryCode,
+
+        @Size(max = 255)
+        String creatorAuthor,
+
+        @Min(1000)
+        Integer estimatedYear,
+
+        @Size(max = 32)
+        @Pattern(regexp = "^[A-Za-z][A-Za-z -]{0,31}$", message = "Language must contain letters, spaces, or hyphens only")
+        String languageCode,
+
+        @Size(max = 50)
+        String itemCondition,
+
+        @Size(max = 50)
+        String authenticityStatus,
+
+        @Size(max = 2000)
+        String provenance,
+
         @NotNull
         @DecimalMin(value = "0.01")
         BigDecimal startPrice,

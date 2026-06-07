@@ -18,6 +18,7 @@ import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionImageEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionCloseSummary;
+import org.nedelcu.cosmin.auction.api.auction.model.AuctionDomainRules;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionImageRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
@@ -73,10 +74,19 @@ public class AuctionService {
     @Transactional
     public AuctionResponse createWithUploadedImages(CreateAuctionRequest request, List<MultipartFile> imageFiles) {
         OffsetDateTime now = OffsetDateTime.now();
+        validateCreateRequest(request);
 
         AuctionEntity auction = new AuctionEntity();
         auction.setTitle(request.title());
-        auction.setDescription(request.description());
+        auction.setDescription(trimToNull(request.description()));
+        auction.setCategoryCode(request.categoryCode());
+        auction.setSubcategoryCode(trimToNull(request.subcategoryCode()));
+        auction.setCreatorAuthor(trimToNull(request.creatorAuthor()));
+        auction.setEstimatedYear(request.estimatedYear());
+        auction.setLanguageCode(trimToNull(request.languageCode()));
+        auction.setItemCondition(trimToNull(request.itemCondition()));
+        auction.setAuthenticityStatus(trimToNull(request.authenticityStatus()));
+        auction.setProvenance(trimToNull(request.provenance()));
         auction.setStartPrice(request.startPrice());
         auction.setCurrentPrice(request.startPrice());
         auction.setMinIncrement(request.minIncrement());
@@ -110,10 +120,19 @@ public class AuctionService {
     @Transactional
     public AuctionResponse create(CreateAuctionRequest request, List<String> imageUrls) {
         OffsetDateTime now = OffsetDateTime.now();
+        validateCreateRequest(request);
 
         AuctionEntity auction = new AuctionEntity();
         auction.setTitle(request.title());
-        auction.setDescription(request.description());
+        auction.setDescription(trimToNull(request.description()));
+        auction.setCategoryCode(request.categoryCode());
+        auction.setSubcategoryCode(trimToNull(request.subcategoryCode()));
+        auction.setCreatorAuthor(trimToNull(request.creatorAuthor()));
+        auction.setEstimatedYear(request.estimatedYear());
+        auction.setLanguageCode(trimToNull(request.languageCode()));
+        auction.setItemCondition(trimToNull(request.itemCondition()));
+        auction.setAuthenticityStatus(trimToNull(request.authenticityStatus()));
+        auction.setProvenance(trimToNull(request.provenance()));
         auction.setStartPrice(request.startPrice());
         auction.setCurrentPrice(request.startPrice());
         auction.setMinIncrement(request.minIncrement());
@@ -272,6 +291,14 @@ public class AuctionService {
                 auctionEntity.getId(),
                 auctionEntity.getTitle(),
                 auctionEntity.getDescription(),
+                auctionEntity.getCategoryCode(),
+                auctionEntity.getSubcategoryCode(),
+                auctionEntity.getCreatorAuthor(),
+                auctionEntity.getEstimatedYear(),
+                auctionEntity.getLanguageCode(),
+                auctionEntity.getItemCondition(),
+                auctionEntity.getAuthenticityStatus(),
+                auctionEntity.getProvenance(),
                 auctionEntity.getStartPrice(),
                 auctionEntity.getCurrentPrice(),
                 auctionEntity.getMinIncrement(),
@@ -413,6 +440,36 @@ public class AuctionService {
         if (!images.isEmpty()) {
             auctionImageRepository.saveAll(images);
         }
+    }
+
+    private void validateCreateRequest(CreateAuctionRequest request) {
+        if (!AuctionDomainRules.isValidCategory(request.categoryCode())) {
+            throw new BusinessException("Unsupported category code: " + request.categoryCode());
+        }
+
+        String subcategoryCode = trimToNull(request.subcategoryCode());
+        if (subcategoryCode != null && !AuctionDomainRules.isValidSubcategory(request.categoryCode(), subcategoryCode)) {
+            throw new BusinessException("Unsupported subcategory for category " + request.categoryCode() + ": " + subcategoryCode);
+        }
+
+        String itemCondition = trimToNull(request.itemCondition());
+        if (itemCondition != null && !AuctionDomainRules.isValidCondition(itemCondition)) {
+            throw new BusinessException("Unsupported item condition: " + itemCondition);
+        }
+
+        String authenticityStatus = trimToNull(request.authenticityStatus());
+        if (authenticityStatus != null && !AuctionDomainRules.isValidAuthenticityStatus(authenticityStatus)) {
+            throw new BusinessException("Unsupported authenticity status: " + authenticityStatus);
+        }
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private Map<Long, List<AuctionImageResponse>> loadImagesByAuctionId(List<Long> auctionIds) {

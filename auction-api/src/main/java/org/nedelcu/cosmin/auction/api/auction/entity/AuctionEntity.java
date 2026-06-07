@@ -32,6 +32,29 @@ public class AuctionEntity {
 
     private String description;
 
+    @Column(name = "category_code")
+    private String categoryCode;
+
+    @Column(name = "subcategory_code")
+    private String subcategoryCode;
+
+    @Column(name = "creator_author")
+    private String creatorAuthor;
+
+    @Column(name = "estimated_year")
+    private Integer estimatedYear;
+
+    @Column(name = "language_code")
+    private String languageCode;
+
+    @Column(name = "item_condition")
+    private String itemCondition;
+
+    @Column(name = "authenticity_status")
+    private String authenticityStatus;
+
+    private String provenance;
+
     @Column(name = "start_price")
     private BigDecimal startPrice;
 

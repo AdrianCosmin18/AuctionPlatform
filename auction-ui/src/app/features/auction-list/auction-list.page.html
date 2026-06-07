@@ -2,23 +2,23 @@
   <section class="overview-hero mb-4">
     <div class="overview-hero__content">
       <div>
-        <div class="section-kicker">Marketplace operations</div>
-        <h1 class="page-title mb-2">Auctions</h1>
+        <div class="section-kicker">Arhiva culturala la licitatie</div>
+        <h1 class="page-title mb-2">Documente rare, carti si manuscrise</h1>
         <p class="page-subtitle mb-0">
-          Monitorizare pentru licitatii active, draft-uri si inchideri. Interfata ramane utilitara, dar da context clar si prioritate actiunilor care conteaza acum.
+          Exploreaza loturi documentare clasificate tematic si urmareste licitatiile active, draft-urile si inchiderile automate.
         </p>
       </div>
       <div class="overview-hero__actions">
-        <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="Create auction" severity="contrast"></a>
+        <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="Adauga lot" severity="contrast"></a>
         <p-button icon="pi pi-refresh" label="Reload" severity="secondary" [outlined]="true" (onClick)="loadAuctions()" />
       </div>
     </div>
 
     <div class="overview-grid">
       <article class="overview-card">
-        <span class="overview-card__label">Total auctions</span>
+        <span class="overview-card__label">Total loturi</span>
         <strong class="overview-card__value">{{ totalAuctions }}</strong>
-        <span class="overview-card__hint">Toate licitatiile disponibile in backend</span>
+        <span class="overview-card__hint">Toate loturile disponibile in backend</span>
       </article>
       <article class="overview-card overview-card--success">
         <span class="overview-card__label">Running</span>
@@ -31,7 +31,7 @@
         <span class="overview-card__hint">Pregatite pentru start manual</span>
       </article>
       <article class="overview-card">
-        <span class="overview-card__label">Highest current price</span>
+        <span class="overview-card__label">Pret curent maxim</span>
         <strong class="overview-card__value">{{ highestCurrentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
         <span class="overview-card__hint">Cea mai mare valoare curenta vizibila</span>
       </article>
@@ -45,14 +45,14 @@
           </div>
         }
         <div>
-          <div class="featured-auction__label">Focus now</div>
+          <div class="featured-auction__label">In focus</div>
           <div class="featured-auction__title">{{ featuredAuction.title }}</div>
           <div class="featured-auction__copy">
-            #{{ featuredAuction.id }} Â· {{ featuredAuction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}
-            Â· {{ featuredAuction.endTime ? (featuredAuction.endTime | date: 'medium') : 'No end time' }}
+            {{ categoryLabel(featuredAuction.categoryCode) }} · #{{ featuredAuction.id }} · {{ featuredAuction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}
+            · {{ featuredAuction.endTime ? (featuredAuction.endTime | date: 'medium') : 'Fara termen de inchidere' }}
           </div>
         </div>
-        <a pButton [routerLink]="['/auctions', featuredAuction.id]" icon="pi pi-arrow-right" label="Open auction" severity="contrast"></a>
+        <a pButton [routerLink]="['/auctions', featuredAuction.id]" icon="pi pi-arrow-right" label="Deschide lotul" severity="contrast"></a>
       </div>
     }
   </section>
@@ -70,8 +70,15 @@
       <div class="filters-bar">
         <span class="p-input-icon-left filters-search">
           <i class="pi pi-search"></i>
-          <input pInputText type="text" placeholder="Search auctions" [(ngModel)]="searchTerm" class="w-100" />
+          <input pInputText type="text" placeholder="Cauta dupa titlu, categorie sau autor" [(ngModel)]="searchTerm" class="w-100" />
         </span>
+
+        <select class="form-control filters-select" [(ngModel)]="categoryFilter">
+          <option value="ALL">Toate categoriile</option>
+          @for (category of categories; track category.code) {
+            <option [value]="category.code">{{ category.label }}</option>
+          }
+        </select>
 
         <div class="status-filters">
           <p-button label="All" [outlined]="statusFilter !== 'ALL'" (onClick)="setStatusFilter('ALL')" />
@@ -100,12 +107,14 @@
         [rowTrackBy]="trackAuction">
         <ng-template pTemplate="header">
           <tr>
-            <th>Title</th>
+            <th>Lot</th>
+            <th>Categorie</th>
             <th>Status</th>
-            <th>Current price</th>
-            <th>Min increment</th>
+            <th>Pret curent</th>
+            <th>Increment minim</th>
+            <th>Autenticitate</th>
             <th>End time</th>
-            <th class="text-end">Actions</th>
+            <th class="text-end">Actiuni</th>
           </tr>
         </ng-template>
         <ng-template pTemplate="body" let-auction>
@@ -121,10 +130,25 @@
                 <span>#{{ auction.id }}</span>
                 <span class="separator"></span>
                 <span>{{ auction.createdBy ? ('Creator ' + auction.createdBy) : 'Unknown creator' }}</span>
+                @if (auction.creatorAuthor) {
+                  <span class="separator"></span>
+                  <span>{{ auction.creatorAuthor }}</span>
+                }
               </div>
               @if (auction.description) {
                 <div class="title-cell__copy">{{ auction.description }}</div>
               }
+            </td>
+            <td>
+              <div class="category-cell">
+                <strong>{{ categoryLabel(auction.categoryCode) }}</strong>
+                @if (subcategoryLabel(auction); as subcategory) {
+                  <span>{{ subcategory }}</span>
+                }
+                @if (auction.estimatedYear) {
+                  <small>{{ auction.estimatedYear }}</small>
+                }
+              </div>
             </td>
             <td>
               <p-tag [value]="auction.status" [severity]="statusSeverity(auction.status)" />
@@ -138,6 +162,14 @@
               <div class="price-cell__caption">Minimum raise</div>
             </td>
             <td>
+              <div class="category-cell">
+                <strong>{{ authenticityLabel(auction.authenticityStatus) ?? '-' }}</strong>
+                @if (itemConditionLabel(auction.itemCondition); as itemCondition) {
+                  <span>{{ itemCondition }}</span>
+                }
+              </div>
+            </td>
+            <td>
               <div class="time-pill" [class.time-pill--critical]="endTimeTone(auction) === 'critical'" [class.time-pill--warning]="endTimeTone(auction) === 'warning'">
                 <i class="pi pi-clock"></i>
                 <span>{{ auction.endTime ? (auction.endTime | date: 'medium') : '-' }}</span>
@@ -145,7 +177,7 @@
             </td>
             <td class="actions-cell">
               <div class="d-flex justify-content-end gap-2 flex-wrap actions-cluster">
-                <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="Details" severity="info"></a>
+                <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="Detalii" severity="info"></a>
                 @if (auction.status === 'DRAFT') {
                   <p-button
                     icon="pi pi-play"
@@ -170,7 +202,7 @@
         </ng-template>
         <ng-template pTemplate="emptymessage">
           <tr>
-            <td colspan="6" class="text-center py-5 text-body-secondary">Nu exista licitatii disponibile.</td>
+            <td colspan="8" class="text-center py-5 text-body-secondary">Nu exista loturi disponibile.</td>
           </tr>
         </ng-template>
       </p-table>

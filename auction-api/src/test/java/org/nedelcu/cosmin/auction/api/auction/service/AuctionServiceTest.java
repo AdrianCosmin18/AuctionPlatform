@@ -1,6 +1,7 @@
 package org.nedelcu.cosmin.auction.api.auction.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -76,6 +77,14 @@ class AuctionServiceTest {
         savedAuction.setId(99L);
         savedAuction.setTitle("Camera Sony");
         savedAuction.setDescription("Mirrorless body");
+        savedAuction.setCategoryCode("RARE_BOOKS");
+        savedAuction.setSubcategoryCode("SIGNED_COPIES");
+        savedAuction.setCreatorAuthor("Autor Demo");
+        savedAuction.setEstimatedYear(1924);
+        savedAuction.setLanguageCode("Romanian");
+        savedAuction.setItemCondition("GOOD");
+        savedAuction.setAuthenticityStatus("VERIFIED");
+        savedAuction.setProvenance("Private collection");
         savedAuction.setStartPrice(new BigDecimal("500.00"));
         savedAuction.setCurrentPrice(new BigDecimal("500.00"));
         savedAuction.setMinIncrement(new BigDecimal("25.00"));
@@ -106,6 +115,14 @@ class AuctionServiceTest {
         AuctionResponse response = auctionService.create(new org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest(
                 "Camera Sony",
                 "Mirrorless body",
+                "RARE_BOOKS",
+                "SIGNED_COPIES",
+                "Autor Demo",
+                1924,
+                "Romanian",
+                "GOOD",
+                "VERIFIED",
+                "Private collection",
                 new BigDecimal("500.00"),
                 new BigDecimal("25.00"),
                 endTime,
@@ -122,6 +139,36 @@ class AuctionServiceTest {
         assertThat(response.images()).hasSize(2);
         assertThat(response.images().get(0).imageUrl()).isEqualTo("https://img.test/sony-front.jpg");
         assertThat(response.images().get(1).imageUrl()).isEqualTo("https://img.test/sony-back.jpg");
+        assertThat(response.categoryCode()).isEqualTo("RARE_BOOKS");
+        assertThat(response.subcategoryCode()).isEqualTo("SIGNED_COPIES");
+        assertThat(response.authenticityStatus()).isEqualTo("VERIFIED");
+    }
+
+    @Test
+    void createRejectsSubcategoryThatDoesNotBelongToCategory() {
+        OffsetDateTime endTime = OffsetDateTime.now().plusHours(2);
+
+        assertThatThrownBy(() -> auctionService.create(new org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest(
+                "Lot invalid",
+                "Mismatch category",
+                "RARE_BOOKS",
+                "MILITARY_MAPS",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new BigDecimal("100.00"),
+                new BigDecimal("10.00"),
+                endTime,
+                30,
+                30,
+                1L,
+                List.of()
+        )))
+                .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
+                .hasMessageContaining("Unsupported subcategory");
     }
 
     @Test

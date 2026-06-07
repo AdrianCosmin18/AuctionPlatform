@@ -10,6 +10,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { finalize } from 'rxjs';
+import { AUCTION_CATEGORIES, AUTHENTICITY_STATUSES, ITEM_CONDITIONS, findCategoryByCode, findOptionLabel } from '../../core/constants/auction-taxonomy';
 import { environment } from '../../../environments/environment';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionStatus } from '../../core/models/auction-status.type';
@@ -39,7 +40,9 @@ export class AuctionListPageComponent implements OnInit {
   private readonly auctionApi = inject(AuctionApiService);
 
   auctions: Auction[] = [];
+  readonly categories = AUCTION_CATEGORIES;
   statusFilter: 'ALL' | AuctionStatus = 'ALL';
+  categoryFilter = 'ALL';
   searchTerm = '';
   loading = false;
   actionLoadingId: number | null = null;
@@ -81,17 +84,37 @@ export class AuctionListPageComponent implements OnInit {
     return auction.images[0] ? this.resolveImageUrl(auction.images[0].imageUrl) : null;
   }
 
+  categoryLabel(code: string | null | undefined): string {
+    return findCategoryByCode(code)?.label ?? 'Necategorizat';
+  }
+
+  subcategoryLabel(auction: Auction): string | null {
+    const category = findCategoryByCode(auction.categoryCode);
+    return category?.subcategories.find((subcategory) => subcategory.code === auction.subcategoryCode)?.label ?? null;
+  }
+
+  itemConditionLabel(code: string | null | undefined): string | null {
+    return findOptionLabel(ITEM_CONDITIONS, code);
+  }
+
+  authenticityLabel(code: string | null | undefined): string | null {
+    return findOptionLabel(AUTHENTICITY_STATUSES, code);
+  }
+
   get filteredAuctions(): Auction[] {
     const search = this.searchTerm.trim().toLowerCase();
 
     return this.auctions.filter((auction) => {
       const matchesStatus = this.statusFilter === 'ALL' || auction.status === this.statusFilter;
+      const matchesCategory = this.categoryFilter === 'ALL' || auction.categoryCode === this.categoryFilter;
       const matchesSearch =
         !search ||
         auction.title.toLowerCase().includes(search) ||
-        auction.description?.toLowerCase().includes(search);
+        auction.description?.toLowerCase().includes(search) ||
+        this.categoryLabel(auction.categoryCode).toLowerCase().includes(search) ||
+        auction.creatorAuthor?.toLowerCase().includes(search);
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesCategory && matchesSearch;
     });
   }
 
@@ -189,6 +212,7 @@ export class AuctionListPageComponent implements OnInit {
 
   clearFilters(): void {
     this.statusFilter = 'ALL';
+    this.categoryFilter = 'ALL';
     this.searchTerm = '';
   }
 

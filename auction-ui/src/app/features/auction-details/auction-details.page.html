@@ -6,11 +6,11 @@
         <div>
           <a routerLink="/auctions" class="back-link">
             <i class="pi pi-arrow-left"></i>
-            <span>Back to auctions</span>
+            <span>Back to archive auctions</span>
           </a>
-          <div class="section-kicker">Auction command center</div>
+          <div class="section-kicker">Lot documentar</div>
           <h1 class="page-title mb-1">{{ vm.auction?.title ?? 'Auction details' }}</h1>
-          <p class="page-subtitle mb-0">Monitorizare live, bidding si istoric evenimente pentru licitatia selectata.</p>
+          <p class="page-subtitle mb-0">Monitorizare live, bidding si metadata curatoriale pentru lotul selectat.</p>
         </div>
         @if (vm.auction) {
           <p-tag [value]="vm.auction.status" [severity]="statusSeverity(vm.auction.status)" />
@@ -87,6 +87,34 @@
 
             <div class="auction-meta-grid">
               <div>
+                <span class="meta-label">Categorie</span>
+                <div class="meta-value">{{ categoryLabel(vm.auction.categoryCode) }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Subcategorie</span>
+                <div class="meta-value">{{ subcategoryLabel(vm.auction) ?? '-' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Autor / creator</span>
+                <div class="meta-value">{{ vm.auction.creatorAuthor ?? '-' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">An estimativ</span>
+                <div class="meta-value">{{ vm.auction.estimatedYear ?? '-' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Limba</span>
+                <div class="meta-value">{{ vm.auction.languageCode ?? '-' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Stare de conservare</span>
+                <div class="meta-value">{{ itemConditionLabel(vm.auction.itemCondition) ?? '-' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Autenticitate</span>
+                <div class="meta-value">{{ authenticityLabel(vm.auction.authenticityStatus) ?? '-' }}</div>
+              </div>
+              <div>
                 <span class="meta-label">Auction ID</span>
                 <div class="meta-value">#{{ vm.auction.id }}</div>
               </div>
@@ -146,6 +174,14 @@
             @if (vm.auction.description) {
               <p-divider />
               <p class="mb-0 description-copy">{{ vm.auction.description }}</p>
+            }
+
+            @if (vm.auction.provenance) {
+              <p-divider />
+              <div class="provenance-panel">
+                <span class="meta-label">Provenienta</span>
+                <p class="mb-0 description-copy">{{ vm.auction.provenance }}</p>
+              </div>
             }
 
             @if (vm.auction.status === 'ENDED') {
