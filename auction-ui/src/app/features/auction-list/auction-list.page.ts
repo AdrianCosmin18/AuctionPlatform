@@ -4,14 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
+import { ChipModule } from 'primeng/chip';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
+import { PaginatorModule } from 'primeng/paginator';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SelectButtonModule } from 'primeng/selectbutton';
 import { SelectModule } from 'primeng/select';
-import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { finalize } from 'rxjs';
-import { AUCTION_CATEGORIES, AUTHENTICITY_STATUSES, ITEM_CONDITIONS, findCategoryByCode, findOptionLabel } from '../../core/constants/auction-taxonomy';
+import { AUTHENTICITY_STATUSES, AUCTION_CATEGORIES, ITEM_CONDITIONS, findCategoryByCode, findOptionLabel } from '../../core/constants/auction-taxonomy';
 import { environment } from '../../../environments/environment';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionStatus } from '../../core/models/auction-status.type';
@@ -25,12 +29,16 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
     FormsModule,
     RouterLink,
     CardModule,
-    TableModule,
     TagModule,
+    ChipModule,
     ButtonModule,
     InputTextModule,
+    IconFieldModule,
+    InputIconModule,
+    PaginatorModule,
     ProgressSpinnerModule,
     SelectModule,
+    SelectButtonModule,
     MessageModule,
     CurrencyPipe,
     DatePipe
@@ -43,13 +51,21 @@ export class AuctionListPageComponent implements OnInit {
 
   auctions: Auction[] = [];
   readonly categories = AUCTION_CATEGORIES;
-  readonly categoryFilterOptions = [{ code: 'ALL', label: 'Toate categoriile' }, ...AUCTION_CATEGORIES];
+  readonly categoryFilterOptions = [{ code: 'ALL', label: 'All categories' }, ...AUCTION_CATEGORIES];
+  readonly statusFilterOptions = [
+    { label: 'All', value: 'ALL' },
+    { label: 'Live', value: 'RUNNING' },
+    { label: 'Upcoming', value: 'DRAFT' },
+    { label: 'Closed', value: 'ENDED' }
+  ];
   statusFilter: 'ALL' | AuctionStatus = 'ALL';
   categoryFilter = 'ALL';
   searchTerm = '';
+  rows = 9;
   loading = false;
   actionLoadingId: number | null = null;
   errorMessage: string | null = null;
+  first = 0;
 
   ngOnInit(): void {
     this.loadAuctions();
@@ -59,55 +75,50 @@ export class AuctionListPageComponent implements OnInit {
     return this.auctions.length;
   }
 
-  get runningAuctions(): number {
+  get liveAuctions(): number {
     return this.auctions.filter((auction) => auction.status === 'RUNNING').length;
   }
 
-  get draftAuctions(): number {
-    return this.auctions.filter((auction) => auction.status === 'DRAFT').length;
+  get curatedCategories(): number {
+    return new Set(this.auctions.map((auction) => auction.categoryCode)).size;
   }
 
-  get endedAuctions(): number {
-    return this.auctions.filter((auction) => auction.status === 'ENDED').length;
-  }
-
-  get highestCurrentPrice(): number {
-    return this.auctions.reduce((max, auction) => Math.max(max, Number(auction.currentPrice)), 0);
+  get endingSoonCount(): number {
+    return this.auctions.filter((auction) => this.endTimeTone(auction) !== 'neutral').length;
   }
 
   get featuredAuction(): Auction | null {
-    const running = this.auctions
-      .filter((auction) => auction.status === 'RUNNING' && auction.endTime)
-      .sort((left, right) => new Date(left.endTime as string).getTime() - new Date(right.endTime as string).getTime());
+    const ranked = [...this.filteredAuctions].sort((left, right) => {
+      const leftCurated = this.isCuratedAuction(left) ? 1 : 0;
+      const rightCurated = this.isCuratedAuction(right) ? 1 : 0;
+      const leftRunning = left.status === 'RUNNING' ? 1 : 0;
+      const rightRunning = right.status === 'RUNNING' ? 1 : 0;
+      const leftHasImage = left.images.length > 0 ? 1 : 0;
+      const rightHasImage = right.images.length > 0 ? 1 : 0;
 
-    return running[0] ?? this.auctions[0] ?? null;
-  }
+      if (leftCurated !== rightCurated) {
+        return rightCurated - leftCurated;
+      }
 
-  primaryImage(auction: Auction): string | null {
-    return auction.images[0] ? this.resolveImageUrl(auction.images[0].imageUrl) : null;
-  }
+      if (leftRunning !== rightRunning) {
+        return rightRunning - leftRunning;
+      }
 
-  categoryLabel(code: string | null | undefined): string {
-    return findCategoryByCode(code)?.label ?? 'Necategorizat';
-  }
+      if (leftHasImage !== rightHasImage) {
+        return rightHasImage - leftHasImage;
+      }
 
-  subcategoryLabel(auction: Auction): string | null {
-    const category = findCategoryByCode(auction.categoryCode);
-    return category?.subcategories.find((subcategory) => subcategory.code === auction.subcategoryCode)?.label ?? null;
-  }
+      return Number(right.currentPrice) - Number(left.currentPrice);
+    });
 
-  itemConditionLabel(code: string | null | undefined): string | null {
-    return findOptionLabel(ITEM_CONDITIONS, code);
-  }
-
-  authenticityLabel(code: string | null | undefined): string | null {
-    return findOptionLabel(AUTHENTICITY_STATUSES, code);
+    return ranked[0] ?? null;
   }
 
   get filteredAuctions(): Auction[] {
     const search = this.searchTerm.trim().toLowerCase();
 
-    return this.auctions.filter((auction) => {
+    return this.auctions
+      .filter((auction) => {
       const matchesStatus = this.statusFilter === 'ALL' || auction.status === this.statusFilter;
       const matchesCategory = this.categoryFilter === 'ALL' || auction.categoryCode === this.categoryFilter;
       const matchesSearch =
@@ -117,8 +128,13 @@ export class AuctionListPageComponent implements OnInit {
         this.categoryLabel(auction.categoryCode).toLowerCase().includes(search) ||
         auction.creatorAuthor?.toLowerCase().includes(search);
 
-      return matchesStatus && matchesCategory && matchesSearch;
-    });
+        return matchesStatus && matchesCategory && matchesSearch;
+      })
+      .sort((left, right) => this.auctionRank(right) - this.auctionRank(left) || this.endTimeSort(left, right));
+  }
+
+  get pagedAuctions(): Auction[] {
+    return this.filteredAuctions.slice(this.first, this.first + this.rows);
   }
 
   loadAuctions(): void {
@@ -133,43 +149,34 @@ export class AuctionListPageComponent implements OnInit {
           this.auctions = [...auctions].sort((left, right) => {
             const leftTime = left.endTime ? new Date(left.endTime).getTime() : 0;
             const rightTime = right.endTime ? new Date(right.endTime).getTime() : 0;
-            return rightTime - leftTime;
+            return leftTime - rightTime;
           });
         },
         error: (error) => {
-          this.errorMessage = error?.error?.detail ?? 'Nu am putut incarca licitatiile.';
+          this.errorMessage = error?.error?.detail ?? 'Unable to load auctions.';
         }
       });
   }
 
-  startAuction(auction: Auction): void {
-    this.actionLoadingId = auction.id;
-    this.errorMessage = null;
-
-    this.auctionApi
-      .startAuction(auction.id)
-      .pipe(finalize(() => (this.actionLoadingId = null)))
-      .subscribe({
-        next: (updated) => this.replaceAuction(updated),
-        error: (error) => {
-          this.errorMessage = error?.error?.detail ?? 'Pornirea licitatiei a esuat.';
-        }
-      });
+  primaryImage(auction: Auction): string | null {
+    return auction.images[0] ? this.resolveImageUrl(auction.images[0].imageUrl) : null;
   }
 
-  closeAuction(auction: Auction): void {
-    this.actionLoadingId = auction.id;
-    this.errorMessage = null;
+  categoryLabel(code: string | null | undefined): string {
+    return findCategoryByCode(code)?.label ?? 'Uncategorized';
+  }
 
-    this.auctionApi
-      .closeAuction(auction.id)
-      .pipe(finalize(() => (this.actionLoadingId = null)))
-      .subscribe({
-        next: (updated) => this.replaceAuction(updated),
-        error: (error) => {
-          this.errorMessage = error?.error?.detail ?? 'Inchiderea licitatiei a esuat.';
-        }
-      });
+  subcategoryLabel(auction: Auction): string | null {
+    const category = findCategoryByCode(auction.categoryCode);
+    return category?.subcategories.find((subcategory) => subcategory.code === auction.subcategoryCode)?.label ?? null;
+  }
+
+  itemConditionLabel(code: string | null | undefined): string | null {
+    return findOptionLabel(ITEM_CONDITIONS, code);
+  }
+
+  authenticityLabel(code: string | null | undefined): string | null {
+    return findOptionLabel(AUTHENTICITY_STATUSES, code);
   }
 
   statusSeverity(status: AuctionStatus): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
@@ -187,6 +194,21 @@ export class AuctionListPageComponent implements OnInit {
     }
   }
 
+  statusLabel(status: AuctionStatus): string {
+    switch (status) {
+      case 'RUNNING':
+        return 'Live';
+      case 'DRAFT':
+        return 'Upcoming';
+      case 'ENDED':
+        return 'Closed';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
   endTimeTone(auction: Auction): 'critical' | 'warning' | 'neutral' {
     if (!auction.endTime || auction.status !== 'RUNNING') {
       return 'neutral';
@@ -198,25 +220,90 @@ export class AuctionListPageComponent implements OnInit {
       return 'critical';
     }
 
-    if (millisUntilEnd <= 30 * 60 * 1000) {
+    if (millisUntilEnd <= 60 * 60 * 1000) {
       return 'warning';
     }
 
     return 'neutral';
   }
 
-  trackAuction(index: number, auction: Auction): number {
-    return auction.id;
+  startAuction(auction: Auction): void {
+    this.actionLoadingId = auction.id;
+    this.errorMessage = null;
+
+    this.auctionApi
+      .startAuction(auction.id)
+      .pipe(finalize(() => (this.actionLoadingId = null)))
+      .subscribe({
+        next: (updated) => this.replaceAuction(updated),
+        error: (error) => {
+          this.errorMessage = error?.error?.detail ?? 'Unable to start the auction.';
+        }
+      });
   }
 
-  setStatusFilter(status: 'ALL' | AuctionStatus): void {
-    this.statusFilter = status;
+  closeAuction(auction: Auction): void {
+    this.actionLoadingId = auction.id;
+    this.errorMessage = null;
+
+    this.auctionApi
+      .closeAuction(auction.id)
+      .pipe(finalize(() => (this.actionLoadingId = null)))
+      .subscribe({
+        next: (updated) => this.replaceAuction(updated),
+        error: (error) => {
+          this.errorMessage = error?.error?.detail ?? 'Unable to close the auction.';
+        }
+      });
   }
 
   clearFilters(): void {
     this.statusFilter = 'ALL';
     this.categoryFilter = 'ALL';
     this.searchTerm = '';
+    this.first = 0;
+  }
+
+  trackAuction(index: number, auction: Auction): number {
+    return auction.id;
+  }
+
+  onFilterChange(): void {
+    this.first = 0;
+  }
+
+  onPageChange(event: { first?: number | null }): void {
+    this.first = event.first ?? 0;
+  }
+
+  private isCuratedAuction(auction: Auction): boolean {
+    return !!auction.categoryCode;
+  }
+
+  private auctionRank(auction: Auction): number {
+    let rank = 0;
+
+    if (this.isCuratedAuction(auction)) {
+      rank += 100;
+    }
+
+    if (auction.images.length > 0) {
+      rank += 25;
+    }
+
+    if (auction.status === 'RUNNING') {
+      rank += 20;
+    } else if (auction.status === 'DRAFT') {
+      rank += 10;
+    }
+
+    return rank + Math.min(Number(auction.currentPrice) / 100, 20);
+  }
+
+  private endTimeSort(left: Auction, right: Auction): number {
+    const leftTime = left.endTime ? new Date(left.endTime).getTime() : Number.MAX_SAFE_INTEGER;
+    const rightTime = right.endTime ? new Date(right.endTime).getTime() : Number.MAX_SAFE_INTEGER;
+    return leftTime - rightTime;
   }
 
   private replaceAuction(updated: Auction): void {

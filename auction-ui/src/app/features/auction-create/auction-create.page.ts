@@ -7,11 +7,14 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { FileUploadModule } from 'primeng/fileupload';
 import { GalleriaModule } from 'primeng/galleria';
+import { IconFieldModule } from 'primeng/iconfield';
 import { InputNumberModule } from 'primeng/inputnumber';
-import { SelectModule } from 'primeng/select';
+import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SelectModule } from 'primeng/select';
+import { TextareaModule } from 'primeng/textarea';
 import { finalize } from 'rxjs';
 import { AUTHENTICITY_STATUSES, AUCTION_CATEGORIES, ITEM_CONDITIONS, findCategoryByCode } from '../../core/constants/auction-taxonomy';
 import { AuctionApiService } from '../../core/services/auction-api.service';
@@ -27,11 +30,14 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
     ButtonModule,
     FileUploadModule,
     GalleriaModule,
+    IconFieldModule,
     InputTextModule,
+    InputIconModule,
     InputNumberModule,
-    SelectModule,
     MessageModule,
-    ProgressSpinnerModule
+    ProgressSpinnerModule,
+    SelectModule,
+    TextareaModule
   ],
   templateUrl: './auction-create.page.html',
   styleUrl: './auction-create.page.scss'
@@ -132,7 +138,7 @@ export class AuctionCreatePageComponent implements OnDestroy {
           void this.router.navigate(['/auctions', auction.id]);
         },
         error: (error: HttpErrorResponse) => {
-          this.errorMessage = error.error?.detail ?? 'Nu am putut crea licitatia.';
+          this.errorMessage = error.error?.detail ?? 'Unable to create the auction.';
         }
       });
   }

@@ -9,14 +9,14 @@ body {
 body {
   margin: 0;
   font-family:
-    Inter,
+    'Fraunces',
+    'Segoe UI',
+    Georgia,
     system-ui,
     -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
     sans-serif;
   color: #0f172a;
-  background: #f8fafc;
+  background: #f8f6f1;
 }
 
 * {
@@ -38,8 +38,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: rgba(59, 130, 246, 0.08);
-  color: #1d4ed8;
+  background: rgba(180, 83, 9, 0.09);
+  color: #9a3412;
 }
 
 .page-title {
@@ -59,14 +59,14 @@ body {
 .p-card {
   border-radius: 1rem;
   box-shadow: 0 18px 38px rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .p-toolbar {
   border: 0;
   border-radius: 0;
   padding: 0.9rem 1.25rem;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 252, 247, 0.9);
 }
 
 .p-datatable-table {
@@ -75,4 +75,57 @@ body {
 
 .surface-card {
   background: rgba(255, 255, 255, 0.94);
+}
+
+a[pbutton],
+a.p-button,
+.p-button {
+  text-decoration: none !important;
+}
+
+.p-button {
+  border-radius: 0.85rem;
+}
+
+.p-button .p-button-label {
+  text-decoration: none !important;
+}
+
+.p-inputtext,
+.p-select,
+.p-inputnumber-input,
+.form-control {
+  border-radius: 0.85rem;
+}
+
+.p-select,
+.p-inputtext,
+.p-inputnumber,
+.form-control {
+  width: 100%;
+}
+
+.p-select-label,
+.p-inputtext,
+.p-inputnumber-input,
+.form-control,
+textarea {
+  color: #0f172a !important;
+}
+
+.p-select:not(.p-disabled),
+.p-inputtext:not(.p-disabled),
+.p-inputnumber-input:not(.p-disabled),
+.form-control:not(:disabled) {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.p-dataview-content,
+.p-card-content,
+.p-card-body {
+  color: #0f172a;
+}
+
+.p-tag {
+  font-weight: 700;
 }

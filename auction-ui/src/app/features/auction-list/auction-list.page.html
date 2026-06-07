@@ -1,59 +1,65 @@
-﻿<section class="page-section">
-  <section class="overview-hero mb-4">
-    <div class="overview-hero__content">
-      <div>
-        <div class="section-kicker">Arhiva culturala la licitatie</div>
-        <h1 class="page-title mb-2">Documente rare, carti si manuscrise</h1>
-        <p class="page-subtitle mb-0">
-          Exploreaza loturi documentare clasificate tematic si urmareste licitatiile active, draft-urile si inchiderile automate.
-        </p>
-      </div>
-      <div class="overview-hero__actions">
-        <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="Adauga lot" severity="contrast"></a>
-        <p-button icon="pi pi-refresh" label="Reload" severity="secondary" [outlined]="true" (onClick)="loadAuctions()" />
-      </div>
-    </div>
+<section class="page-section">
+  <section class="market-hero">
+    <div class="market-hero__copy">
+      <div class="section-kicker">Curated marketplace</div>
+      <h1 class="page-title">Bid on rare books, manuscripts, and historic archives</h1>
+      <p class="page-subtitle">
+        Discover catalogued lots, monitor live bidding, and browse specialized material across verified historical categories.
+      </p>
 
-    <div class="overview-grid">
-      <article class="overview-card">
-        <span class="overview-card__label">Total loturi</span>
-        <strong class="overview-card__value">{{ totalAuctions }}</strong>
-        <span class="overview-card__hint">Toate loturile disponibile in backend</span>
-      </article>
-      <article class="overview-card overview-card--success">
-        <span class="overview-card__label">Running</span>
-        <strong class="overview-card__value">{{ runningAuctions }}</strong>
-        <span class="overview-card__hint">Necesita monitorizare live si bidding</span>
-      </article>
-      <article class="overview-card overview-card--warning">
-        <span class="overview-card__label">Draft</span>
-        <strong class="overview-card__value">{{ draftAuctions }}</strong>
-        <span class="overview-card__hint">Pregatite pentru start manual</span>
-      </article>
-      <article class="overview-card">
-        <span class="overview-card__label">Pret curent maxim</span>
-        <strong class="overview-card__value">{{ highestCurrentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
-        <span class="overview-card__hint">Cea mai mare valoare curenta vizibila</span>
-      </article>
+      <div class="market-hero__stats">
+        <article class="stat-card">
+          <span class="stat-card__label">Lots available</span>
+          <strong class="stat-card__value">{{ totalAuctions }}</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__label">Live auctions</span>
+          <strong class="stat-card__value">{{ liveAuctions }}</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__label">Curated categories</span>
+          <strong class="stat-card__value">{{ curatedCategories }}</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__label">Ending soon</span>
+          <strong class="stat-card__value">{{ endingSoonCount }}</strong>
+        </article>
+      </div>
     </div>
 
     @if (featuredAuction) {
-      <div class="featured-auction">
+      <p-card styleClass="hero-featured-card">
         @if (primaryImage(featuredAuction); as featuredImage) {
-          <div class="featured-auction__media">
+          <div class="hero-featured-card__media">
             <img [src]="featuredImage" [alt]="featuredAuction.title" />
           </div>
         }
-        <div>
-          <div class="featured-auction__label">In focus</div>
-          <div class="featured-auction__title">{{ featuredAuction.title }}</div>
-          <div class="featured-auction__copy">
-            {{ categoryLabel(featuredAuction.categoryCode) }} · #{{ featuredAuction.id }} · {{ featuredAuction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}
-            · {{ featuredAuction.endTime ? (featuredAuction.endTime | date: 'medium') : 'Fara termen de inchidere' }}
+        <div class="hero-featured-card__body">
+          <p-tag [value]="statusLabel(featuredAuction.status)" [severity]="statusSeverity(featuredAuction.status)" />
+          <h2>{{ featuredAuction.title }}</h2>
+          <p>{{ featuredAuction.description ?? 'Specialist lot with catalogued provenance and auction metadata.' }}</p>
+          <div class="hero-featured-card__meta">
+            <p-chip [label]="categoryLabel(featuredAuction.categoryCode)" />
+            @if (subcategoryLabel(featuredAuction); as featuredSubcategory) {
+              <p-chip [label]="featuredSubcategory" />
+            }
+            @if (featuredAuction.creatorAuthor) {
+              <p-chip [label]="featuredAuction.creatorAuthor" />
+            }
           </div>
+          <div class="hero-featured-card__price">
+            <span>Current bid</span>
+            <strong>{{ featuredAuction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
+          </div>
+          <a
+            pButton
+            [routerLink]="['/auctions', featuredAuction.id]"
+            icon="pi pi-arrow-right"
+            label="View auction"
+            severity="contrast"
+          ></a>
         </div>
-        <a pButton [routerLink]="['/auctions', featuredAuction.id]" icon="pi pi-arrow-right" label="Deschide lotul" severity="contrast"></a>
-      </div>
+      </p-card>
     }
   </section>
 
@@ -61,154 +67,169 @@
     <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
   }
 
-  <p-card styleClass="surface-card">
+  <p-card styleClass="surface-card market-filters-card">
+    <div class="market-filters">
+      <p-iconField iconPosition="left" class="market-filters__search">
+        <p-inputIcon styleClass="pi pi-search" />
+        <input
+          pInputText
+          type="text"
+          placeholder="Search by title, category, or creator"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onFilterChange()"
+        />
+      </p-iconField>
+
+      <p-select
+        [options]="categoryFilterOptions"
+        [(ngModel)]="categoryFilter"
+        (ngModelChange)="onFilterChange()"
+        optionLabel="label"
+        optionValue="code"
+        placeholder="Filter by category"
+        appendTo="body"
+        styleClass="market-filters__category"
+      />
+
+      <p-selectButton
+        [options]="statusFilterOptions"
+        [(ngModel)]="statusFilter"
+        (ngModelChange)="onFilterChange()"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+      />
+
+      <p-button label="Clear filters" severity="secondary" [outlined]="true" (onClick)="clearFilters()" />
+    </div>
+  </p-card>
+
+  <p-card styleClass="surface-card market-results-card">
     @if (loading) {
       <div class="loading-state">
         <p-progressSpinner strokeWidth="4" />
       </div>
     } @else {
-      <div class="filters-bar">
-        <span class="p-input-icon-left filters-search">
-          <i class="pi pi-search"></i>
-          <input pInputText type="text" placeholder="Cauta dupa titlu, categorie sau autor" [(ngModel)]="searchTerm" class="w-100" />
-        </span>
-
-        <p-select
-          [options]="categoryFilterOptions"
-          [(ngModel)]="categoryFilter"
-          optionLabel="label"
-          optionValue="code"
-          placeholder="Filtreaza dupa categorie"
-          appendTo="body"
-          styleClass="filters-select"
-        />
-
-        <div class="status-filters">
-          <p-button label="All" [outlined]="statusFilter !== 'ALL'" (onClick)="setStatusFilter('ALL')" />
-          <p-button
-            label="Running"
-            severity="success"
-            [outlined]="statusFilter !== 'RUNNING'"
-            (onClick)="setStatusFilter('RUNNING')"
-          />
-          <p-button label="Draft" severity="warn" [outlined]="statusFilter !== 'DRAFT'" (onClick)="setStatusFilter('DRAFT')" />
-          <p-button
-            label="Ended"
-            severity="secondary"
-            [outlined]="statusFilter !== 'ENDED'"
-            (onClick)="setStatusFilter('ENDED')"
-          />
+      <div class="results-toolbar">
+        <div>
+          <strong>{{ filteredAuctions.length }}</strong>
+          <span> matching lots</span>
         </div>
-
-        <p-button label="Clear" severity="secondary" [text]="true" (onClick)="clearFilters()" />
+        <p-tag value="Marketplace view" severity="info" />
       </div>
 
-      <p-table
-        [value]="filteredAuctions"
-        [tableStyle]="{ 'min-width': '100%' }"
-        responsiveLayout="scroll"
-        [rowTrackBy]="trackAuction">
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Lot</th>
-            <th>Categorie</th>
-            <th>Status</th>
-            <th>Pret curent</th>
-            <th>Increment minim</th>
-            <th>Autenticitate</th>
-            <th>End time</th>
-            <th class="text-end">Actiuni</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-auction>
-          <tr>
-            <td class="title-cell">
-              @if (primaryImage(auction); as thumbnailUrl) {
-                <div class="title-cell__media">
-                  <img [src]="thumbnailUrl" [alt]="auction.title" />
+      @if (filteredAuctions.length > 0) {
+        <div class="auction-grid">
+          @for (auction of pagedAuctions; track trackAuction($index, auction)) {
+            <article class="auction-card">
+              <div class="auction-card__media">
+                @if (primaryImage(auction); as imageUrl) {
+                  <img [src]="imageUrl" [alt]="auction.title" />
+                } @else {
+                  <div class="auction-card__placeholder">
+                    <span class="auction-card__placeholder-badge">{{ categoryLabel(auction.categoryCode) }}</span>
+                    <strong>{{ auction.title }}</strong>
+                    <small>{{ auction.creatorAuthor ?? 'Curated lot awaiting imagery' }}</small>
+                  </div>
+                }
+
+                <div class="auction-card__status">
+                  <p-tag [value]="statusLabel(auction.status)" [severity]="statusSeverity(auction.status)" />
                 </div>
-              }
-              <div class="title-cell__title">{{ auction.title }}</div>
-              <div class="title-cell__meta">
-                <span>#{{ auction.id }}</span>
-                <span class="separator"></span>
-                <span>{{ auction.createdBy ? ('Creator ' + auction.createdBy) : 'Unknown creator' }}</span>
-                @if (auction.creatorAuthor) {
-                  <span class="separator"></span>
-                  <span>{{ auction.creatorAuthor }}</span>
-                }
               </div>
-              @if (auction.description) {
-                <div class="title-cell__copy">{{ auction.description }}</div>
-              }
-            </td>
-            <td>
-              <div class="category-cell">
-                <strong>{{ categoryLabel(auction.categoryCode) }}</strong>
-                @if (subcategoryLabel(auction); as subcategory) {
-                  <span>{{ subcategory }}</span>
+
+              <div class="auction-card__body">
+                <div class="auction-card__topline">
+                  <span>#{{ auction.id }}</span>
+                  @if (auction.estimatedYear) {
+                    <span>{{ auction.estimatedYear }}</span>
+                  }
+                </div>
+
+                <h3>{{ auction.title }}</h3>
+
+                <div class="auction-card__chips">
+                  <p-chip [label]="categoryLabel(auction.categoryCode)" />
+                  @if (subcategoryLabel(auction); as subcategory) {
+                    <p-chip [label]="subcategory" />
+                  }
+                </div>
+
+                @if (auction.description) {
+                  <p class="auction-card__description">{{ auction.description }}</p>
                 }
-                @if (auction.estimatedYear) {
-                  <small>{{ auction.estimatedYear }}</small>
-                }
+
+                <div class="auction-card__metadata">
+                  @if (auction.creatorAuthor) {
+                    <div>
+                      <span class="metadata-label">Creator</span>
+                      <strong>{{ auction.creatorAuthor }}</strong>
+                    </div>
+                  }
+                  <div>
+                    <span class="metadata-label">Authenticity</span>
+                    <strong>{{ authenticityLabel(auction.authenticityStatus) ?? '-' }}</strong>
+                  </div>
+                  <div>
+                    <span class="metadata-label">Condition</span>
+                    <strong>{{ itemConditionLabel(auction.itemCondition) ?? '-' }}</strong>
+                  </div>
+                </div>
+
+                <div class="auction-card__footer">
+                  <div class="auction-card__pricing">
+                    <span>Current bid</span>
+                    <strong>{{ auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
+                    <small>Min increment {{ auction.minIncrement | currency: 'EUR' : 'symbol' : '1.2-2' }}</small>
+                  </div>
+
+                  <div class="auction-card__timing" [class.auction-card__timing--critical]="endTimeTone(auction) === 'critical'" [class.auction-card__timing--warning]="endTimeTone(auction) === 'warning'">
+                    <span>Ends</span>
+                    <strong>{{ auction.endTime ? (auction.endTime | date: 'MMM d, y, h:mm a') : 'TBA' }}</strong>
+                  </div>
+                </div>
+
+                <div class="auction-card__actions">
+                  <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="View" severity="contrast"></a>
+                  @if (auction.status === 'DRAFT') {
+                    <p-button
+                      icon="pi pi-play"
+                      label="Start"
+                      severity="success"
+                      [loading]="actionLoadingId === auction.id"
+                      (onClick)="startAuction(auction)"
+                    />
+                  }
+                  @if (auction.status === 'RUNNING') {
+                    <p-button
+                      icon="pi pi-stop"
+                      label="Close"
+                      severity="danger"
+                      [outlined]="true"
+                      [loading]="actionLoadingId === auction.id"
+                      (onClick)="closeAuction(auction)"
+                    />
+                  }
+                </div>
               </div>
-            </td>
-            <td>
-              <p-tag [value]="auction.status" [severity]="statusSeverity(auction.status)" />
-            </td>
-            <td class="price-cell">
-              <div class="price-cell__value">{{ auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
-              <div class="price-cell__caption">Current price</div>
-            </td>
-            <td class="price-cell">
-              <div class="price-cell__value">{{ auction.minIncrement | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
-              <div class="price-cell__caption">Minimum raise</div>
-            </td>
-            <td>
-              <div class="category-cell">
-                <strong>{{ authenticityLabel(auction.authenticityStatus) ?? '-' }}</strong>
-                @if (itemConditionLabel(auction.itemCondition); as itemCondition) {
-                  <span>{{ itemCondition }}</span>
-                }
-              </div>
-            </td>
-            <td>
-              <div class="time-pill" [class.time-pill--critical]="endTimeTone(auction) === 'critical'" [class.time-pill--warning]="endTimeTone(auction) === 'warning'">
-                <i class="pi pi-clock"></i>
-                <span>{{ auction.endTime ? (auction.endTime | date: 'medium') : '-' }}</span>
-              </div>
-            </td>
-            <td class="actions-cell">
-              <div class="d-flex justify-content-end gap-2 flex-wrap actions-cluster">
-                <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="Detalii" severity="info"></a>
-                @if (auction.status === 'DRAFT') {
-                  <p-button
-                    icon="pi pi-play"
-                    label="Start"
-                    severity="success"
-                    [loading]="actionLoadingId === auction.id"
-                    (onClick)="startAuction(auction)"
-                  />
-                }
-                @if (auction.status === 'RUNNING') {
-                  <p-button
-                    icon="pi pi-stop"
-                    label="Close"
-                    severity="danger"
-                    [loading]="actionLoadingId === auction.id"
-                    (onClick)="closeAuction(auction)"
-                  />
-                }
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="8" class="text-center py-5 text-body-secondary">Nu exista loturi disponibile.</td>
-          </tr>
-        </ng-template>
-      </p-table>
+            </article>
+          }
+        </div>
+
+        <p-paginator
+          [first]="first"
+          [rows]="rows"
+          [totalRecords]="filteredAuctions.length"
+          (onPageChange)="onPageChange($event)"
+        />
+      } @else {
+        <div class="empty-state">
+          <i class="pi pi-search"></i>
+          <h3>No auctions match the current filters</h3>
+          <p>Try a broader search or switch back to all categories.</p>
+          <p-button label="Reset filters" severity="secondary" [outlined]="true" (onClick)="clearFilters()" />
+        </div>
+      }
     }
   </p-card>
 </section>

@@ -8,7 +8,7 @@
           </span>
           <div>
             <div class="brand-title">{{ title }}</div>
-            <div class="brand-subtitle">Operations console</div>
+            <div class="brand-subtitle">Rare books, manuscripts, and historic archives</div>
           </div>
         </div>
       </ng-template>
@@ -17,9 +17,10 @@
         <div class="header-actions">
           <div class="status-pill">
             <span class="status-dot"></span>
-            <span>Connected workspace</span>
+            <span>Live marketplace</span>
           </div>
-          <a pButton routerLink="/auctions" icon="pi pi-home" label="Auctions" severity="contrast"></a>
+          <a pButton routerLink="/auctions" icon="pi pi-home" label="Browse Auctions" severity="contrast"></a>
+          <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="List an Item" severity="secondary" [outlined]="true"></a>
         </div>
       </ng-template>
     </p-toolbar>

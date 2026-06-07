@@ -6,11 +6,11 @@
         <div>
           <a routerLink="/auctions" class="back-link">
             <i class="pi pi-arrow-left"></i>
-            <span>Back to archive auctions</span>
+            <span>Back to marketplace</span>
           </a>
-          <div class="section-kicker">Lot documentar</div>
+          <div class="section-kicker">Curated lot</div>
           <h1 class="page-title mb-1">{{ vm.auction?.title ?? 'Auction details' }}</h1>
-          <p class="page-subtitle mb-0">Monitorizare live, bidding si metadata curatoriale pentru lotul selectat.</p>
+          <p class="page-subtitle mb-0">Live bidding, catalog metadata, and auction activity for the selected lot.</p>
         </div>
         @if (vm.auction) {
           <p-tag [value]="vm.auction.status" [severity]="statusSeverity(vm.auction.status)" />
@@ -31,12 +31,12 @@
             <strong class="details-overview-card__value">
               {{ vm.nextMinimumBid ? (vm.nextMinimumBid | currency: 'EUR' : 'symbol' : '1.2-2') : '-' }}
             </strong>
-            <span class="details-overview-card__hint">Current price + minimum increment</span>
+            <span class="details-overview-card__hint">Current price plus minimum increment</span>
           </article>
           <article class="details-overview-card">
             <span class="details-overview-card__label">Bid count</span>
             <strong class="details-overview-card__value">{{ vm.bidCount }}</strong>
-            <span class="details-overview-card__hint">Stored bid history entries</span>
+            <span class="details-overview-card__hint">Recorded bid history entries</span>
           </article>
           <article class="details-overview-card">
             <span class="details-overview-card__label">Latest bidder</span>
@@ -64,10 +64,10 @@
         <div class="col-12 col-xl-8">
           <p-card styleClass="surface-card">
             @if (vm.auction.images.length > 0) {
-                <div class="gallery-panel">
-                  <div class="gallery-panel__hero">
+              <div class="gallery-panel">
+                <div class="gallery-panel__hero">
                   <img [src]="imageSrc(vm.auction.images[selectedImageIndex].imageUrl)" [alt]="vm.auction.title" />
-                  </div>
+                </div>
                 @if (vm.auction.images.length > 1) {
                   <div class="gallery-panel__thumbs">
                     @for (image of vm.auction.images; track image.id; let index = $index) {
@@ -87,31 +87,31 @@
 
             <div class="auction-meta-grid">
               <div>
-                <span class="meta-label">Categorie</span>
+                <span class="meta-label">Category</span>
                 <div class="meta-value">{{ categoryLabel(vm.auction.categoryCode) }}</div>
               </div>
               <div>
-                <span class="meta-label">Subcategorie</span>
+                <span class="meta-label">Subcategory</span>
                 <div class="meta-value">{{ subcategoryLabel(vm.auction) ?? '-' }}</div>
               </div>
               <div>
-                <span class="meta-label">Autor / creator</span>
+                <span class="meta-label">Author / creator</span>
                 <div class="meta-value">{{ vm.auction.creatorAuthor ?? '-' }}</div>
               </div>
               <div>
-                <span class="meta-label">An estimativ</span>
+                <span class="meta-label">Estimated year</span>
                 <div class="meta-value">{{ vm.auction.estimatedYear ?? '-' }}</div>
               </div>
               <div>
-                <span class="meta-label">Limba</span>
+                <span class="meta-label">Language</span>
                 <div class="meta-value">{{ vm.auction.languageCode ?? '-' }}</div>
               </div>
               <div>
-                <span class="meta-label">Stare de conservare</span>
+                <span class="meta-label">Condition</span>
                 <div class="meta-value">{{ itemConditionLabel(vm.auction.itemCondition) ?? '-' }}</div>
               </div>
               <div>
-                <span class="meta-label">Autenticitate</span>
+                <span class="meta-label">Authenticity</span>
                 <div class="meta-value">{{ authenticityLabel(vm.auction.authenticityStatus) ?? '-' }}</div>
               </div>
               <div>
@@ -123,7 +123,7 @@
                 <div class="meta-value">{{ vm.auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
               </div>
               <div>
-                <span class="meta-label">Min increment</span>
+                <span class="meta-label">Minimum increment</span>
                 <div class="meta-value">{{ vm.auction.minIncrement | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
               </div>
               <div>
@@ -179,7 +179,7 @@
             @if (vm.auction.provenance) {
               <p-divider />
               <div class="provenance-panel">
-                <span class="meta-label">Provenienta</span>
+                <span class="meta-label">Provenance</span>
                 <p class="mb-0 description-copy">{{ vm.auction.provenance }}</p>
               </div>
             }
@@ -246,7 +246,7 @@
               </ng-template>
               <ng-template pTemplate="emptymessage">
                 <tr>
-                  <td colspan="4" class="text-center py-4 text-body-secondary">Nu exista bids pentru aceasta licitatie.</td>
+                  <td colspan="4" class="text-center py-4 text-body-secondary">No bids have been recorded for this auction yet.</td>
                 </tr>
               </ng-template>
             </p-table>
@@ -275,21 +275,21 @@
                     </strong>
                   </div>
                   @if (bidForm.controls.amount.touched && bidForm.controls.amount.errors?.['required']) {
-                    <small class="field-error">Introdu suma bid-ului.</small>
+                    <small class="field-error">Enter your bid amount.</small>
                   } @else if (bidForm.controls.amount.touched && bidForm.controls.amount.errors?.['min']) {
-                    <small class="field-error">Suma trebuie sa fie mai mare decat zero.</small>
+                    <small class="field-error">The amount must be greater than zero.</small>
                   } @else if (bidForm.controls.amount.touched && bidForm.controls.amount.errors?.['minimumBid']) {
                     <small class="field-error">
-                      Bid-ul minim permis este
+                      The minimum allowed bid is
                       {{ bidForm.controls.amount.errors?.['minimumBid']?.requiredMinimum | currency: 'EUR' : 'symbol' : '1.2-2' }}.
                     </small>
                   }
                 </div>
 
                 @if (vm.auction.status !== 'RUNNING') {
-                  <p-message severity="info" text="Licitatia nu accepta bid-uri in starea curenta." />
+                  <p-message severity="info" text="This auction is not accepting bids in its current state." />
                 } @else if (vm.remainingTime?.expired) {
-                  <p-message severity="warn" text="Timpul licitatiei a expirat. Asteptam inchiderea automata." />
+                  <p-message severity="warn" text="The auction timer has expired. Waiting for automatic closure." />
                 }
 
                 <p-button
@@ -314,7 +314,7 @@
                     <div class="event-copy">{{ eventSummary(event) }}</div>
                   </div>
                 } @empty {
-                  <div class="text-body-secondary">Nu au fost receptionate evenimente live inca.</div>
+                  <div class="text-body-secondary">No live events have been received yet.</div>
                 }
               </div>
             </p-card>

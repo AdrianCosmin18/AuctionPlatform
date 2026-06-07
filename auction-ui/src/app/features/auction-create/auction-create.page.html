@@ -1,13 +1,13 @@
-<section class="page-section">
+﻿<section class="page-section">
   <section class="create-hero mb-4">
     <div>
       <a routerLink="/auctions" class="back-link">
         <i class="pi pi-arrow-left"></i>
-        <span>Back to archive auctions</span>
+        <span>Back to marketplace</span>
       </a>
-      <div class="section-kicker">Catalogare lot cultural</div>
-      <h1 class="page-title mb-1">Adauga un document sau volum de colectie</h1>
-      <p class="page-subtitle mb-0">Descrie lotul, clasificarea si starea de conservare inainte de pornirea licitatiei.</p>
+      <div class="section-kicker">Consignment setup</div>
+      <h1 class="page-title mb-1">List a rare document or collectible volume</h1>
+      <p class="page-subtitle mb-0">Capture the cataloguing details, provenance, and auction settings before going live.</p>
     </div>
   </section>
 
@@ -21,47 +21,48 @@
         <form class="create-form" [formGroup]="auctionForm" (ngSubmit)="submit()">
           <div class="form-grid">
             <div class="form-field form-field--full">
-              <label class="form-label" for="title">Titlu lot</label>
+              <label class="form-label" for="title">Lot title</label>
               <input id="title" type="text" pInputText formControlName="title" class="w-100" />
               @if (auctionForm.controls.title.touched && auctionForm.controls.title.errors?.['required']) {
-                <small class="field-error">Titlul este obligatoriu.</small>
+                <small class="field-error">Title is required.</small>
               }
             </div>
 
             <div class="form-field form-field--full">
-              <label class="form-label" for="description">Descriere</label>
+              <label class="form-label" for="description">Description</label>
               <textarea
                 id="description"
+                pTextarea
                 class="form-control"
                 rows="4"
                 formControlName="description"
-                placeholder="Descrie pe scurt obiectul, contextul istoric si elementele relevante pentru colectionari."
+                placeholder="Summarize the object, historical context, and what makes the lot collectible."
               ></textarea>
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="categoryCode">Categorie</label>
+              <label class="form-label" for="categoryCode">Category</label>
               <p-select
                 inputId="categoryCode"
                 formControlName="categoryCode"
                 [options]="categories"
                 optionLabel="label"
                 optionValue="code"
-                placeholder="Selecteaza categoria"
+                placeholder="Select a category"
                 appendTo="body"
                 styleClass="w-100"
               />
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="subcategoryCode">Subcategorie</label>
+              <label class="form-label" for="subcategoryCode">Subcategory</label>
               <p-select
                 inputId="subcategoryCode"
                 formControlName="subcategoryCode"
                 [options]="availableSubcategories"
                 optionLabel="label"
                 optionValue="code"
-                placeholder="Selecteaza subcategoria"
+                placeholder="Select a subcategory"
                 appendTo="body"
                 styleClass="w-100"
               />
@@ -75,12 +76,12 @@
             }
 
             <div class="form-field">
-              <label class="form-label" for="creatorAuthor">Autor / creator</label>
+              <label class="form-label" for="creatorAuthor">Author / creator</label>
               <input id="creatorAuthor" type="text" pInputText formControlName="creatorAuthor" class="w-100" />
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="estimatedYear">An estimativ</label>
+              <label class="form-label" for="estimatedYear">Estimated year</label>
               <p-inputNumber
                 inputId="estimatedYear"
                 formControlName="estimatedYear"
@@ -91,51 +92,52 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="languageCode">Limba</label>
+              <label class="form-label" for="languageCode">Language</label>
               <input id="languageCode" type="text" pInputText formControlName="languageCode" class="w-100" />
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="itemCondition">Stare de conservare</label>
+              <label class="form-label" for="itemCondition">Condition</label>
               <p-select
                 inputId="itemCondition"
                 formControlName="itemCondition"
                 [options]="itemConditions"
                 optionLabel="label"
                 optionValue="code"
-                placeholder="Selecteaza starea"
+                placeholder="Select condition"
                 appendTo="body"
                 styleClass="w-100"
               />
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="authenticityStatus">Autenticitate</label>
+              <label class="form-label" for="authenticityStatus">Authenticity</label>
               <p-select
                 inputId="authenticityStatus"
                 formControlName="authenticityStatus"
                 [options]="authenticityStatuses"
                 optionLabel="label"
                 optionValue="code"
-                placeholder="Selecteaza statusul"
+                placeholder="Select status"
                 appendTo="body"
                 styleClass="w-100"
               />
             </div>
 
             <div class="form-field form-field--full">
-              <label class="form-label" for="provenance">Provenienta</label>
+              <label class="form-label" for="provenance">Provenance</label>
               <textarea
                 id="provenance"
+                pTextarea
                 class="form-control"
                 rows="3"
                 formControlName="provenance"
-                placeholder="Ex: colectie privata, arhiva familiala, librarie anticara."
+                placeholder="Example: private collection, family archive, antiquarian bookshop."
               ></textarea>
             </div>
 
             <div class="form-field form-field--full">
-              <label class="form-label">Imagini lot</label>
+              <label class="form-label">Lot images</label>
               <p-fileupload
                 name="images[]"
                 mode="advanced"
@@ -145,13 +147,13 @@
                 [showUploadButton]="false"
                 [showCancelButton]="false"
                 [maxFileSize]="10000000"
-                chooseLabel="Selecteaza imagini"
+                chooseLabel="Select images"
                 [fileLimit]="5"
                 (onSelect)="onFilesSelected($event)"
                 (onRemove)="onFileRemoved($event)"
                 (onClear)="clearSelectedFiles()">
               </p-fileupload>
-              <small class="form-helper">Incarca pana la 5 imagini locale. Prima ramane imaginea principala a lotului.</small>
+              <small class="form-helper">Upload up to 5 local images. The first one becomes the lead image.</small>
 
               @if (previewImages.length > 0) {
                 <div class="upload-preview">
@@ -173,7 +175,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="startPrice">Pret de pornire</label>
+              <label class="form-label" for="startPrice">Opening price</label>
               <p-inputNumber
                 inputId="startPrice"
                 formControlName="startPrice"
@@ -186,7 +188,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="minIncrement">Increment minim</label>
+              <label class="form-label" for="minIncrement">Minimum increment</label>
               <p-inputNumber
                 inputId="minIncrement"
                 formControlName="minIncrement"
@@ -199,15 +201,15 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="endTime">Timp inchidere</label>
+              <label class="form-label" for="endTime">Auction end time</label>
               <input id="endTime" type="datetime-local" class="form-control" formControlName="endTime" />
               @if (auctionForm.controls.endTime.touched && auctionForm.controls.endTime.errors?.['required']) {
-                <small class="field-error">Timpul de inchidere este obligatoriu.</small>
+                <small class="field-error">End time is required.</small>
               }
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="createdBy">ID vanzator</label>
+              <label class="form-label" for="createdBy">Seller ID</label>
               <p-inputNumber
                 inputId="createdBy"
                 formControlName="createdBy"
@@ -218,7 +220,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="antiSnipingWindowSec">Fereastra anti-sniping (sec)</label>
+              <label class="form-label" for="antiSnipingWindowSec">Anti-sniping window (sec)</label>
               <p-inputNumber
                 inputId="antiSnipingWindowSec"
                 formControlName="antiSnipingWindowSec"
@@ -229,7 +231,7 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="antiSnipingExtendSec">Extensie anti-sniping (sec)</label>
+              <label class="form-label" for="antiSnipingExtendSec">Anti-sniping extension (sec)</label>
               <p-inputNumber
                 inputId="antiSnipingExtendSec"
                 formControlName="antiSnipingExtendSec"
@@ -241,20 +243,20 @@
           </div>
 
           <div class="form-actions">
-            <a pButton routerLink="/auctions" label="Anuleaza" severity="secondary" [outlined]="true"></a>
-            <p-button type="submit" icon="pi pi-plus" label="Creeaza licitatia" [loading]="loading" />
+            <a pButton routerLink="/auctions" label="Cancel" severity="secondary" [outlined]="true"></a>
+            <p-button type="submit" icon="pi pi-plus" label="Create auction" [loading]="loading" />
           </div>
         </form>
       </p-card>
     </div>
 
     <div class="col-12 col-xl-4">
-      <p-card header="Note curatoriale" styleClass="surface-card">
+      <p-card header="Curatorial notes" styleClass="surface-card">
         <div class="notes-copy">
-          <p>Licitatia se creeaza initial in stare <strong>DRAFT</strong>.</p>
-          <p>Lotul trebuie clasificat intr-o categorie si subcategorie tematica, nu ca produs generic.</p>
-          <p>Pentru MVP, <strong>createdBy</strong> ramane un id numeric simplu, fara auth.</p>
-          <p>Imaginile sunt incarcate local si servite ulterior de backend din storage local.</p>
+          <p>The auction is created initially in <strong>DRAFT</strong> status.</p>
+          <p>Each lot should be catalogued into a domain category and subcategory rather than treated as a generic product.</p>
+          <p>For the MVP, <strong>createdBy</strong> remains a simple numeric seller id without authentication.</p>
+          <p>Images are uploaded locally and served later by the backend from local storage.</p>
         </div>
       </p-card>
     </div>
