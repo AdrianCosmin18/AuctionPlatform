@@ -229,6 +229,7 @@ Frontend-ul suporta:
 - taxonomie categorie/subcategorie in create, edit, listare si detalii
 - `watchers count` in marketplace, details si watchlist
 - unread badge in header pentru notificari
+- toast global in coltul ecranului pentru notificari noi de tip `AUCTION_WON`
 - `mark as read` si `mark all as read` pentru notificari
 
 ## Componente cheie
@@ -306,6 +307,7 @@ Fluxul actual este:
 4. worker-ul il auditeaza in `audit_events`
 5. worker-ul creeaza una sau mai multe notificari in `notifications`
 6. `auction-ui` citeste notificarile prin REST si afiseaza unread badge + lista completa
+7. pentru notificari noi de tip `AUCTION_WON`, UI afiseaza si un toast global in dreapta-sus
 
 ### 6. Frontend reactiv
 
@@ -546,6 +548,7 @@ In frontend:
 - fiecare notificare poate fi marcata individual ca citita
 - exista si actiunea `Mark all as read`
 - daca notificarea are `auctionId`, UI ofera link direct catre pagina licitatiei
+- pentru notificari noi de tip `AUCTION_WON`, UI afiseaza automat un toast global, o singura data per notificare
 
 ### 2. Start auction
 
@@ -1002,6 +1005,14 @@ Tipurile de evenimente folosite in UI sunt:
 3. `auction-worker` creeaza notificari pentru winner, losing bidders, seller si watcherii relevanti
 4. UI-ul actualizeaza unread badge
 5. utilizatorii pot marca notificarile ca citite individual sau bulk
+
+### Scenariul 9: castigarea unei licitatii
+
+1. licitatia se inchide cu un winner valid
+2. `auction-worker` creeaza notificare `AUCTION_WON` pentru userul castigator
+3. polling-ul de notificari detecteaza notificarea noua
+4. UI-ul actualizeaza badge-ul unread din header
+5. UI-ul afiseaza imediat si un toast global in coltul dreapta-sus
 
 ## Date de test utile
 
