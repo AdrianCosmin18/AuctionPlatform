@@ -1,0 +1,100 @@
+<section class="page-section">
+  <section class="watchlist-hero mb-4">
+    <div>
+      <a routerLink="/auctions" class="back-link">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to marketplace</span>
+      </a>
+      <div class="section-kicker">Tracked lots</div>
+      <h1 class="page-title mb-1">My Watchlist</h1>
+      <p class="page-subtitle mb-0">Monitor the lots you want to follow without placing a bid yet.</p>
+    </div>
+  </section>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  <p-card styleClass="surface-card">
+    @if (loading) {
+      <div class="loading-state">
+        <p-progressSpinner strokeWidth="4" />
+      </div>
+    } @else if (watchlist.length > 0) {
+      <div class="watchlist-grid">
+        @for (auction of watchlist; track auction.id) {
+          <article class="watchlist-card">
+            <div class="watchlist-card__media">
+              @if (primaryImage(auction); as imageUrl) {
+                <img [src]="imageUrl" [alt]="auction.title" />
+              } @else {
+                <div class="watchlist-card__placeholder">
+                  <span>{{ categoryLabel(auction.categoryCode) }}</span>
+                  <strong>{{ auction.title }}</strong>
+                </div>
+              }
+            </div>
+
+            <div class="watchlist-card__body">
+              <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <p-tag [value]="auction.status" [severity]="statusSeverity(auction.status)" />
+                <span class="watchers-copy">{{ auction.watchersCount }} watchers</span>
+              </div>
+
+              <h3>{{ auction.title }}</h3>
+
+              <div class="watchlist-card__chips">
+                <p-chip [label]="categoryLabel(auction.categoryCode)" />
+                @if (subcategoryLabel(auction); as subcategory) {
+                  <p-chip [label]="subcategory" />
+                }
+              </div>
+
+              @if (auction.description) {
+                <p class="watchlist-card__description">{{ auction.description }}</p>
+              }
+
+              <div class="watchlist-card__meta">
+                <div>
+                  <span class="meta-label">Current bid</span>
+                  <strong>{{ auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Ends</span>
+                  <strong>{{ auction.endTime ? (auction.endTime | date: 'MMM d, y, h:mm a') : 'TBA' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Authenticity</span>
+                  <strong>{{ authenticityLabel(auction.authenticityStatus) ?? '-' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Condition</span>
+                  <strong>{{ itemConditionLabel(auction.itemCondition) ?? '-' }}</strong>
+                </div>
+              </div>
+
+              <div class="watchlist-card__actions">
+                <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="View" severity="contrast"></a>
+                <p-button
+                  icon="pi pi-heart-fill"
+                  label="Unwatch"
+                  severity="secondary"
+                  [outlined]="true"
+                  [loading]="actionLoadingId === auction.id"
+                  (onClick)="unwatch(auction)"
+                />
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <div class="empty-state">
+        <i class="pi pi-heart"></i>
+        <h3>Your watchlist is empty</h3>
+        <p>Save interesting lots here and return when you are ready to bid.</p>
+        <a pButton routerLink="/auctions" label="Browse auctions" severity="contrast"></a>
+      </div>
+    }
+  </p-card>
+</section>

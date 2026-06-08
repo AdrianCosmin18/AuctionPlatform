@@ -33,6 +33,8 @@ public record AuctionResponse(
         OffsetDateTime closedAt,
         AuctionCloseReason closedReason,
         List<AuctionImageResponse> images,
+        long watchersCount,
+        boolean watchedByCurrentUser,
         Long version
 ) {
 }

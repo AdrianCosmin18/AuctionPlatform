@@ -72,6 +72,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   readonly loading$ = new BehaviorSubject<boolean>(true);
   readonly placingBid$ = new BehaviorSubject<boolean>(false);
   readonly actionLoading$ = new BehaviorSubject<boolean>(false);
+  readonly watchLoading$ = new BehaviorSubject<boolean>(false);
   readonly error$ = new BehaviorSubject<string | null>(null);
   readonly liveMessage$ = new BehaviorSubject<string | null>(null);
   readonly remainingTime$ = combineLatest([this.auction$, timer(0, 1000)]).pipe(
@@ -101,17 +102,19 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     loading: this.loading$,
     placingBid: this.placingBid$,
     actionLoading: this.actionLoading$,
+    watchLoading: this.watchLoading$,
     error: this.error$,
     liveMessage: this.liveMessage$,
     remainingTime: this.remainingTime$
   }).pipe(
-    map(({ auction, bids, recentEvents, loading, placingBid, actionLoading, error, liveMessage, remainingTime }) => ({
+    map(({ auction, bids, recentEvents, loading, placingBid, actionLoading, watchLoading, error, liveMessage, remainingTime }) => ({
       auction,
       bids,
       recentEvents,
       loading,
       placingBid,
       actionLoading,
+      watchLoading,
       error,
       liveMessage,
       remainingTime,
@@ -202,6 +205,39 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           this.error$.next(error?.error?.detail ?? 'Unable to close the auction.');
+        }
+      });
+  }
+
+  toggleWatch(): void {
+    const auction = this.auction$.value;
+
+    if (!auction) {
+      return;
+    }
+
+    this.watchLoading$.next(true);
+    this.error$.next(null);
+
+    const request$ = auction.watchedByCurrentUser
+      ? this.api.unwatchAuction(auction.id)
+      : this.api.watchAuction(auction.id);
+
+    request$
+      .pipe(finalize(() => this.watchLoading$.next(false)))
+      .subscribe({
+        next: (updatedAuction) => {
+          this.auction$.next(updatedAuction);
+          this.showToast(
+            'info',
+            updatedAuction.watchedByCurrentUser ? 'Added to watchlist' : 'Removed from watchlist',
+            updatedAuction.watchedByCurrentUser
+              ? 'You will now see this lot in My Watchlist.'
+              : 'The lot was removed from My Watchlist.'
+          );
+        },
+        error: (error) => {
+          this.error$.next(error?.error?.detail ?? 'Unable to update the watchlist.');
         }
       });
   }
@@ -469,6 +505,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     this.loading$.next(true);
     this.placingBid$.next(false);
     this.actionLoading$.next(false);
+    this.watchLoading$.next(false);
     this.error$.next(null);
     this.setLiveMessage(null);
   }

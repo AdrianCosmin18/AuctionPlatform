@@ -29,5 +29,7 @@ export interface Auction {
   closedAt: string | null;
   closedReason: AuctionCloseReason | null;
   images: AuctionImage[];
+  watchersCount: number;
+  watchedByCurrentUser: boolean;
   version: number;
 }

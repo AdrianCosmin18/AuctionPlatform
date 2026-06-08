@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionImageEntity;
+import org.nedelcu.cosmin.auction.api.auction.entity.AuctionWatchlistEntity;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
@@ -28,6 +29,7 @@ import org.nedelcu.cosmin.auction.api.auction.event.AuctionRealtimeEvent;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionImageRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
+import org.nedelcu.cosmin.auction.api.auction.repository.AuctionWatchlistRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
@@ -57,6 +59,9 @@ class AuctionServiceTest {
 
     @Mock
     private AuctionEventBroadcaster auctionEventBroadcaster;
+
+    @Mock
+    private AuctionWatchlistRepository auctionWatchlistRepository;
 
     @InjectMocks
     private AuctionService auctionService;
@@ -246,6 +251,48 @@ class AuctionServiceTest {
     }
 
     @Test
+    void watchAuctionAddsEntryAndReturnsUpdatedWatchState() {
+        Long auctionId = 61L;
+        Long userId = 2L;
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(auctionId);
+        auction.setStatus(AuctionStatus.RUNNING);
+
+        when(auctionRepository.findById(auctionId)).thenReturn(Optional.of(auction));
+        when(auctionWatchlistRepository.existsByUserIdAndAuctionId(userId, auctionId)).thenReturn(false, true);
+        when(auctionWatchlistRepository.findWatcherCountsByAuctionIds(List.of(auctionId))).thenReturn(List.of(countView(auctionId, 1L)));
+
+        AuctionResponse response = auctionService.watchAuction(auctionId, userId);
+
+        verify(auctionWatchlistRepository).save(any(AuctionWatchlistEntity.class));
+        assertThat(response.watchersCount()).isEqualTo(1L);
+        assertThat(response.watchedByCurrentUser()).isTrue();
+    }
+
+    @Test
+    void unwatchAuctionRemovesEntryAndReturnsUpdatedWatchState() {
+        Long auctionId = 62L;
+        Long userId = 2L;
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(auctionId);
+        auction.setStatus(AuctionStatus.RUNNING);
+        AuctionWatchlistEntity watch = new AuctionWatchlistEntity();
+        watch.setId(10L);
+        watch.setAuctionId(auctionId);
+        watch.setUserId(userId);
+
+        when(auctionRepository.findById(auctionId)).thenReturn(Optional.of(auction));
+        when(auctionWatchlistRepository.findByUserIdAndAuctionId(userId, auctionId)).thenReturn(Optional.of(watch));
+        when(auctionWatchlistRepository.findWatcherCountsByAuctionIds(List.of(auctionId))).thenReturn(List.of());
+
+        AuctionResponse response = auctionService.unwatchAuction(auctionId, userId);
+
+        verify(auctionWatchlistRepository).delete(watch);
+        assertThat(response.watchersCount()).isEqualTo(0L);
+        assertThat(response.watchedByCurrentUser()).isFalse();
+    }
+
+    @Test
     void placeBidPublishesBidPlacedAndAuctionExtendedWhenInsideAntiSnipingWindow() {
         Long auctionId = 10L;
         OffsetDateTime initialEndTime = OffsetDateTime.now().plusSeconds(10);
@@ -388,5 +435,19 @@ class AuctionServiceTest {
         image.setImageUrl("https://img.test/existing.jpg");
         image.setDisplayOrder(displayOrder);
         return image;
+    }
+
+    private AuctionWatchlistRepository.AuctionWatchlistCountView countView(Long auctionId, long count) {
+        return new AuctionWatchlistRepository.AuctionWatchlistCountView() {
+            @Override
+            public Long getAuctionId() {
+                return auctionId;
+            }
+
+            @Override
+            public long getWatcherCount() {
+                return count;
+            }
+        };
     }
 }

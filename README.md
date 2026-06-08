@@ -65,6 +65,7 @@ Responsabilitati principale:
 - permite crearea unei licitatii noi din browser
 - permite editarea unei licitatii `DRAFT` din browser
 - afiseaza pagina de detalii pentru o licitatie
+- permite adaugarea unei licitatii in watchlist si gestionarea `My Watchlist`
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
 - consuma evenimente live prin WebSocket/STOMP
@@ -167,6 +168,7 @@ In `auction-ui`, zonele importante sunt:
 - `features/auction-form`: formular reutilizabil pentru create/edit
 - `features/auction-edit`: editare licitatie `DRAFT`
 - `features/auction-details`: snapshot REST + live updates + bid flow + countdown + bid history + live events
+- `features/my-watchlist`: pagina dedicata pentru loturile urmarite
 - `app.routes.ts`: rutele UI
 
 ## Ce face aplicatia acum
@@ -177,6 +179,8 @@ Backend-ul suporta:
 - editare licitatie `DRAFT`
 - listare licitatii
 - citire licitatie dupa id
+- watch / unwatch pentru licitatii
+- listare `My Watchlist`
 - pornire licitatie
 - inchidere licitatie
 - inchidere automata a licitatiilor expirate
@@ -199,6 +203,8 @@ Frontend-ul suporta:
 - creare licitatie la `/auctions/new`
 - editare licitatie `DRAFT` la `/auctions/:id/edit`
 - detalii licitatie la `/auctions/:id`
+- watch / unwatch din marketplace si pagina de detalii
+- pagina dedicata `My Watchlist` la `/my-watchlist`
 - start auction din lista si din pagina de detalii
 - close auction din lista si din pagina de detalii
 - plasare bid din UI
@@ -213,6 +219,7 @@ Frontend-ul suporta:
 - panou `Bid history` cu cele mai recente bid-uri
 - panou `Live events` cu evenimentele WebSocket receptionate in timp real
 - taxonomie categorie/subcategorie in create, edit, listare si detalii
+- `watchers count` in marketplace, details si watchlist
 
 ## Componente cheie
 
@@ -294,6 +301,7 @@ Tabele principale:
 - `users`
 - `auctions`
 - `auction_images`
+- `auction_watchlist`
 - `bids`
 - `outbox_events`
 - `audit_events`
@@ -338,6 +346,19 @@ Persistenta media locala foloseste:
 - `auction-api/src/main/resources/static/demo-images/` pentru imaginile demo seed-uite
 - `uploads/` pentru imaginile uploadate in runtime
 - `scripts/generate_thematic_demo_assets.mjs` pentru generarea asset-urilor demo
+
+### `auction_watchlist`
+
+Retine loturile urmarite de fiecare utilizator:
+
+- `user_id`
+- `auction_id`
+- `created_at`
+
+Pentru MVP:
+
+- user-ul curent este transmis simplu prin header-ul `X-User-Id`
+- UI foloseste acelasi model simplificat cu `user_id` numeric, fara autentificare completa
 
 ### `outbox_events`
 
@@ -429,6 +450,26 @@ UI-ul:
 - cauta dupa `title` si `description`
 - foloseste prima imagine din galerie ca thumbnail in lista si in sectiunea `Focus now`
 - permite actiuni rapide de `Start`, `Close` si `Details`
+
+### 1d. Watch / Unwatch auction
+
+Clientul sau UI-ul apeleaza:
+
+- `POST /api/auctions/{id}/watch`
+- `DELETE /api/auctions/{id}/watch`
+- `GET /api/auctions/me/watchlist`
+
+Aplicatia:
+
+- adauga sau elimina licitatia din `auction_watchlist`
+- calculeaza `watchersCount`
+- expune `watchedByCurrentUser` in raspunsurile pentru licitatii
+
+In frontend:
+
+- utilizatorul poate urmari sau opri urmarirea din marketplace si din pagina de detalii
+- exista pagina `My Watchlist`
+- UI afiseaza numarul de watchers pentru fiecare lot relevant
 
 ### 2. Start auction
 
@@ -713,6 +754,9 @@ In acest moment exista:
 - `GET /api/auctions/{id}`
 - `POST /api/auctions`
 - `PUT /api/auctions/{id}`
+- `POST /api/auctions/{id}/watch`
+- `DELETE /api/auctions/{id}/watch`
+- `GET /api/auctions/me/watchlist`
 - `POST /api/auctions/{id}/start`
 - `POST /api/auctions/{id}/close`
 - `POST /api/auctions/{id}/bids`
@@ -722,6 +766,7 @@ In acest moment exista:
 
 - `GET /auctions`
 - `GET /auctions/new`
+- `GET /my-watchlist`
 - `GET /auctions/:id/edit`
 - `GET /auctions/:id`
 
@@ -749,6 +794,8 @@ Frontend-ul consuma un model stabil care include:
 - `closedAt`
 - `closedReason`
 - `images[]`
+- `watchersCount`
+- `watchedByCurrentUser`
 - `version`
 
 ### `AuctionImageResponse`
@@ -864,4 +911,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. Watchlist / Favorite Auctions
+1. In-app Notifications

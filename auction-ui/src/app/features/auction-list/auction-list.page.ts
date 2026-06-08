@@ -64,6 +64,7 @@ export class AuctionListPageComponent implements OnInit {
   rows = 9;
   loading = false;
   actionLoadingId: number | null = null;
+  watchLoadingId: number | null = null;
   errorMessage: string | null = null;
   first = 0;
 
@@ -253,6 +254,24 @@ export class AuctionListPageComponent implements OnInit {
         next: (updated) => this.replaceAuction(updated),
         error: (error) => {
           this.errorMessage = error?.error?.detail ?? 'Unable to close the auction.';
+        }
+      });
+  }
+
+  toggleWatch(auction: Auction): void {
+    this.watchLoadingId = auction.id;
+    this.errorMessage = null;
+
+    const request$ = auction.watchedByCurrentUser
+      ? this.auctionApi.unwatchAuction(auction.id)
+      : this.auctionApi.watchAuction(auction.id);
+
+    request$
+      .pipe(finalize(() => (this.watchLoadingId = null)))
+      .subscribe({
+        next: (updated) => this.replaceAuction(updated),
+        error: (error) => {
+          this.errorMessage = error?.error?.detail ?? 'Unable to update the watchlist.';
         }
       });
   }

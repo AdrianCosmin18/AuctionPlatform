@@ -12,9 +12,19 @@
           <h1 class="page-title mb-1">{{ vm.auction?.title ?? 'Auction details' }}</h1>
           <p class="page-subtitle mb-0">Live bidding, catalog metadata, and auction activity for the selected lot.</p>
         </div>
-        @if (vm.auction) {
-          <p-tag [value]="vm.auction.status" [severity]="statusSeverity(vm.auction.status)" />
-        }
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          @if (vm.auction) {
+            <p-tag [value]="vm.auction.status" [severity]="statusSeverity(vm.auction.status)" />
+            <p-button
+              [icon]="vm.auction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
+              [label]="vm.auction.watchedByCurrentUser ? 'Watching' : 'Watch'"
+              severity="secondary"
+              [outlined]="!vm.auction.watchedByCurrentUser"
+              [loading]="vm.watchLoading"
+              (onClick)="toggleWatch()"
+            />
+          }
+        </div>
       </div>
 
       @if (vm.auction) {
@@ -42,6 +52,11 @@
             <span class="details-overview-card__label">Latest bidder</span>
             <strong class="details-overview-card__value">{{ vm.lastBidderId ? ('#' + vm.lastBidderId) : '-' }}</strong>
             <span class="details-overview-card__hint">Most recent bid owner</span>
+          </article>
+          <article class="details-overview-card">
+            <span class="details-overview-card__label">Watchers</span>
+            <strong class="details-overview-card__value">{{ vm.auction.watchersCount }}</strong>
+            <span class="details-overview-card__hint">Users tracking this lot</span>
           </article>
         </div>
       }

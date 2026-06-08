@@ -16,12 +16,14 @@ import org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionImageEntity;
+import org.nedelcu.cosmin.auction.api.auction.entity.AuctionWatchlistEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionCloseSummary;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionDomainRules;
 import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionImageRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
+import org.nedelcu.cosmin.auction.api.auction.repository.AuctionWatchlistRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.exception.BusinessException;
 import org.nedelcu.cosmin.auction.api.common.exception.ResourceNotFoundException;
@@ -43,36 +45,74 @@ public class AuctionService {
 
     private final AuctionRepository auctionRepository;
     private final AuctionImageRepository auctionImageRepository;
+    private final AuctionWatchlistRepository auctionWatchlistRepository;
     private final BidRepository bidRepository;
     private final OutboxService outboxService;
     private final AuctionEventBroadcaster auctionEventBroadcaster;
     private final AuctionMediaStorageService auctionMediaStorageService;
 
     public List<AuctionResponse> findAll() {
+        return findAll(null);
+    }
+
+    public List<AuctionResponse> findAll(Long currentUserId) {
         List<AuctionEntity> auctions = auctionRepository.findAll();
         Map<Long, List<AuctionImageResponse>> imagesByAuctionId = loadImagesByAuctionId(
                 auctions.stream().map(AuctionEntity::getId).toList()
         );
+        Map<Long, Long> watcherCountsByAuctionId = loadWatcherCountsByAuctionId(
+                auctions.stream().map(AuctionEntity::getId).toList()
+        );
+        List<Long> watchedAuctionIds = loadWatchedAuctionIds(
+                currentUserId,
+                auctions.stream().map(AuctionEntity::getId).toList()
+        );
 
         return auctions.stream()
-                .map(auction -> toResponse(auction, imagesByAuctionId.getOrDefault(auction.getId(), List.of())))
+                .map(auction -> toResponse(
+                        auction,
+                        imagesByAuctionId.getOrDefault(auction.getId(), List.of()),
+                        watcherCountsByAuctionId.getOrDefault(auction.getId(), 0L),
+                        watchedAuctionIds.contains(auction.getId())
+                ))
                 .toList();
     }
 
     public AuctionResponse findById(Long id) {
+        return findById(id, null);
+    }
+
+    public AuctionResponse findById(Long id, Long currentUserId) {
         AuctionEntity auction = auctionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
+        boolean watchedByCurrentUser = currentUserId != null
+                && auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, auction.getId());
 
-        return toResponse(auction, loadImages(auction.getId()));
+        return toResponse(
+                auction,
+                loadImages(auction.getId()),
+                watcherCountForAuction(auction.getId()),
+                watchedByCurrentUser
+        );
     }
 
     @Transactional
     public AuctionResponse create(CreateAuctionRequest request) {
-        return create(request, request.imageUrls());
+        return create(request, (Long) null);
+    }
+
+    @Transactional
+    public AuctionResponse create(CreateAuctionRequest request, Long currentUserId) {
+        return createWithImageUrls(request, request.imageUrls(), currentUserId);
     }
 
     @Transactional
     public AuctionResponse createWithUploadedImages(CreateAuctionRequest request, List<MultipartFile> imageFiles) {
+        return createWithUploadedImages(request, imageFiles, null);
+    }
+
+    @Transactional
+    public AuctionResponse createWithUploadedImages(CreateAuctionRequest request, List<MultipartFile> imageFiles, Long currentUserId) {
         OffsetDateTime now = OffsetDateTime.now();
         validateUpsertRequest(request);
 
@@ -97,11 +137,16 @@ public class AuctionService {
             throw ex;
         }
 
-        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+        return toResponse(savedAuction, loadImages(savedAuction.getId()), 0L, false);
     }
 
     @Transactional
     public AuctionResponse create(CreateAuctionRequest request, List<String> imageUrls) {
+        return createWithImageUrls(request, imageUrls, null);
+    }
+
+    @Transactional
+    public AuctionResponse createWithImageUrls(CreateAuctionRequest request, List<String> imageUrls, Long currentUserId) {
         OffsetDateTime now = OffsetDateTime.now();
         validateUpsertRequest(request);
 
@@ -119,11 +164,16 @@ public class AuctionService {
         AuctionEntity savedAuction = auctionRepository.save(auction);
         saveAuctionImages(savedAuction.getId(), imageUrls, 0);
 
-        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+        return toResponse(savedAuction, loadImages(savedAuction.getId()), 0L, false);
     }
 
     @Transactional
     public AuctionResponse update(Long id, CreateAuctionRequest request) {
+        return update(id, request, null);
+    }
+
+    @Transactional
+    public AuctionResponse update(Long id, CreateAuctionRequest request, Long currentUserId) {
         AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
@@ -135,11 +185,21 @@ public class AuctionService {
         int existingImageCount = loadImages(savedAuction.getId()).size();
         saveAuctionImages(savedAuction.getId(), request.imageUrls(), existingImageCount);
 
-        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+        return toResponse(
+                savedAuction,
+                loadImages(savedAuction.getId()),
+                watcherCountForAuction(savedAuction.getId()),
+                currentUserId != null && auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, savedAuction.getId())
+        );
     }
 
     @Transactional
     public AuctionResponse updateWithUploadedImages(Long id, CreateAuctionRequest request, List<MultipartFile> imageFiles) {
+        return updateWithUploadedImages(id, request, imageFiles, null);
+    }
+
+    @Transactional
+    public AuctionResponse updateWithUploadedImages(Long id, CreateAuctionRequest request, List<MultipartFile> imageFiles, Long currentUserId) {
         AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
@@ -160,11 +220,21 @@ public class AuctionService {
             throw ex;
         }
 
-        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+        return toResponse(
+                savedAuction,
+                loadImages(savedAuction.getId()),
+                watcherCountForAuction(savedAuction.getId()),
+                currentUserId != null && auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, savedAuction.getId())
+        );
     }
 
     @Transactional
     public AuctionResponse start(Long id) {
+        return start(id, null);
+    }
+
+    @Transactional
+    public AuctionResponse start(Long id, Long currentUserId) {
         AuctionEntity auction = auctionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
@@ -183,11 +253,21 @@ public class AuctionService {
         auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
-        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+        return toResponse(
+                savedAuction,
+                loadImages(savedAuction.getId()),
+                watcherCountForAuction(savedAuction.getId()),
+                currentUserId != null && auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, savedAuction.getId())
+        );
     }
 
     @Transactional
     public AuctionResponse close(Long id) {
+        return close(id, null);
+    }
+
+    @Transactional
+    public AuctionResponse close(Long id, Long currentUserId) {
         AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
@@ -196,7 +276,7 @@ public class AuctionService {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        return closeAuction(auction, now, AuctionCloseReason.MANUAL);
+        return closeAuction(auction, now, AuctionCloseReason.MANUAL, currentUserId);
     }
 
     @Transactional
@@ -207,14 +287,79 @@ public class AuctionService {
         OffsetDateTime now = OffsetDateTime.now();
 
         if (auction.getStatus() != AuctionStatus.RUNNING) {
-            return toResponse(auction, loadImages(auction.getId()));
+            return toResponse(
+                    auction,
+                    loadImages(auction.getId()),
+                    watcherCountForAuction(auction.getId()),
+                    false
+            );
         }
 
         if (auction.getEndTime() == null || auction.getEndTime().isAfter(now)) {
-            return toResponse(auction, loadImages(auction.getId()));
+            return toResponse(
+                    auction,
+                    loadImages(auction.getId()),
+                    watcherCountForAuction(auction.getId()),
+                    false
+            );
         }
 
-        return closeAuction(auction, now, AuctionCloseReason.EXPIRED);
+        return closeAuction(auction, now, AuctionCloseReason.EXPIRED, null);
+    }
+
+    @Transactional
+    public AuctionResponse watchAuction(Long auctionId, Long currentUserId) {
+        AuctionEntity auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + auctionId));
+
+        if (auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, auctionId)) {
+            throw new BusinessException("The auction is already in the watchlist");
+        }
+
+        AuctionWatchlistEntity watch = new AuctionWatchlistEntity();
+        watch.setUserId(currentUserId);
+        watch.setAuctionId(auctionId);
+        watch.setCreatedAt(OffsetDateTime.now());
+        auctionWatchlistRepository.save(watch);
+
+        return toResponse(auction, loadImages(auction.getId()), watcherCountForAuction(auction.getId()), true);
+    }
+
+    @Transactional
+    public AuctionResponse unwatchAuction(Long auctionId, Long currentUserId) {
+        AuctionEntity auction = auctionRepository.findById(auctionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + auctionId));
+
+        AuctionWatchlistEntity watch = auctionWatchlistRepository.findByUserIdAndAuctionId(currentUserId, auctionId)
+                .orElseThrow(() -> new BusinessException("The auction is not in the watchlist"));
+        auctionWatchlistRepository.delete(watch);
+
+        return toResponse(auction, loadImages(auction.getId()), watcherCountForAuction(auction.getId()), false);
+    }
+
+    public List<AuctionResponse> findWatchlist(Long currentUserId) {
+        List<AuctionWatchlistEntity> watchEntries = auctionWatchlistRepository.findByUserIdOrderByCreatedAtDesc(currentUserId);
+        List<Long> auctionIds = watchEntries.stream().map(AuctionWatchlistEntity::getAuctionId).distinct().toList();
+
+        if (auctionIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, AuctionEntity> auctionsById = auctionRepository.findAllById(auctionIds).stream()
+                .collect(java.util.stream.Collectors.toMap(AuctionEntity::getId, auction -> auction));
+        Map<Long, List<AuctionImageResponse>> imagesByAuctionId = loadImagesByAuctionId(auctionIds);
+        Map<Long, Long> watcherCountsByAuctionId = loadWatcherCountsByAuctionId(auctionIds);
+
+        return auctionIds.stream()
+                .map(auctionsById::get)
+                .filter(java.util.Objects::nonNull)
+                .map(auction -> toResponse(
+                        auction,
+                        imagesByAuctionId.getOrDefault(auction.getId(), List.of()),
+                        watcherCountsByAuctionId.getOrDefault(auction.getId(), 0L),
+                        true
+                ))
+                .toList();
     }
 
     @Transactional
@@ -293,7 +438,12 @@ public class AuctionService {
                 .toList();
     }
 
-    private AuctionResponse toResponse(AuctionEntity auctionEntity, List<AuctionImageResponse> images) {
+    private AuctionResponse toResponse(
+            AuctionEntity auctionEntity,
+            List<AuctionImageResponse> images,
+            long watchersCount,
+            boolean watchedByCurrentUser
+    ) {
         return new AuctionResponse(
                 auctionEntity.getId(),
                 auctionEntity.getTitle(),
@@ -321,6 +471,8 @@ public class AuctionService {
                 auctionEntity.getClosedAt(),
                 auctionEntity.getClosedReason(),
                 images,
+                watchersCount,
+                watchedByCurrentUser,
                 auctionEntity.getVersion()
         );
     }
@@ -356,7 +508,12 @@ public class AuctionService {
         return !now.isBefore(extensionThreshold);
     }
 
-    private AuctionResponse closeAuction(AuctionEntity auction, OffsetDateTime now, AuctionCloseReason closedReason) {
+    private AuctionResponse closeAuction(
+            AuctionEntity auction,
+            OffsetDateTime now,
+            AuctionCloseReason closedReason,
+            Long currentUserId
+    ) {
         AuctionCloseSummary closeSummary = resolveCloseSummary(auction, closedReason);
 
         auction.setStatus(AuctionStatus.ENDED);
@@ -378,7 +535,12 @@ public class AuctionService {
         );
 
         publishAuctionEvent(savedAuction.getId(), AuctionEventType.AUCTION_CLOSED, auctionClosedEvent, now);
-        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+        return toResponse(
+                savedAuction,
+                loadImages(savedAuction.getId()),
+                watcherCountForAuction(savedAuction.getId()),
+                currentUserId != null && auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, savedAuction.getId())
+        );
     }
 
     private AuctionCloseSummary resolveCloseSummary(AuctionEntity auction, AuctionCloseReason closedReason) {
@@ -540,5 +702,29 @@ public class AuctionService {
         return auctionImageRepository.findByAuctionIdOrderByDisplayOrderAsc(auctionId).stream()
                 .map(this::toImageResponse)
                 .toList();
+    }
+
+    private Map<Long, Long> loadWatcherCountsByAuctionId(List<Long> auctionIds) {
+        if (auctionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return auctionWatchlistRepository.findWatcherCountsByAuctionIds(auctionIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        AuctionWatchlistRepository.AuctionWatchlistCountView::getAuctionId,
+                        AuctionWatchlistRepository.AuctionWatchlistCountView::getWatcherCount
+                ));
+    }
+
+    private List<Long> loadWatchedAuctionIds(Long currentUserId, List<Long> auctionIds) {
+        if (currentUserId == null || auctionIds.isEmpty()) {
+            return List.of();
+        }
+
+        return auctionWatchlistRepository.findWatchedAuctionIdsByUserIdAndAuctionIds(currentUserId, auctionIds);
+    }
+
+    private long watcherCountForAuction(Long auctionId) {
+        return loadWatcherCountsByAuctionId(List.of(auctionId)).getOrDefault(auctionId, 0L);
     }
 }
