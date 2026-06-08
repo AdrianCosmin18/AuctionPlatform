@@ -596,6 +596,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     detail: string
   ): void {
     this.messageService.add({
+      key: 'auction-details',
       severity,
       summary,
       detail
