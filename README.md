@@ -2,6 +2,18 @@
 
 Platforma de licitatii full-stack construita cu Spring Boot, PostgreSQL, RabbitMQ, WebSocket/STOMP si Angular 19.
 
+## Workflow de lucru
+
+Fisierul principal pentru backlog si urmatorii pasi este:
+
+- `ROADMAP.md`
+
+Regula de lucru este:
+
+- luam contextul pentru urmatorul feature din `ROADMAP.md`
+- implementam feature-ul
+- apoi actualizam atat `ROADMAP.md`, cat si acest `README`
+
 ## Module
 
 - `auction-api`: API REST, logica de business, persistenta, outbox, WebSocket.
@@ -51,6 +63,7 @@ Responsabilitati principale:
 
 - afiseaza lista licitatiilor si overview operational
 - permite crearea unei licitatii noi din browser
+- permite editarea unei licitatii `DRAFT` din browser
 - afiseaza pagina de detalii pentru o licitatie
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
@@ -151,6 +164,8 @@ In `auction-ui`, zonele importante sunt:
 - `core/services`: integrare REST si WebSocket
 - `features/auction-list`: lista licitatiilor, filtre, search, start/close rapid
 - `features/auction-create`: formular de creare licitatie
+- `features/auction-form`: formular reutilizabil pentru create/edit
+- `features/auction-edit`: editare licitatie `DRAFT`
 - `features/auction-details`: snapshot REST + live updates + bid flow + countdown + bid history + live events
 - `app.routes.ts`: rutele UI
 
@@ -159,6 +174,7 @@ In `auction-ui`, zonele importante sunt:
 Backend-ul suporta:
 
 - creare licitatie
+- editare licitatie `DRAFT`
 - listare licitatii
 - citire licitatie dupa id
 - pornire licitatie
@@ -172,13 +188,16 @@ Backend-ul suporta:
 - publicare evenimente in RabbitMQ
 - broadcast WebSocket pentru evenimente live
 - audit al evenimentelor procesate in `audit_events`
+- stocare locala pentru imaginile uploadate si servire din `/media/**`
 
 Frontend-ul suporta:
 
 - listare licitatii la `/auctions`
 - filtrare licitatii dupa status: `ALL`, `RUNNING`, `DRAFT`, `ENDED`
+- filtrare licitatii dupa categorie
 - cautare dupa titlu sau descriere in lista de licitatii
 - creare licitatie la `/auctions/new`
+- editare licitatie `DRAFT` la `/auctions/:id/edit`
 - detalii licitatie la `/auctions/:id`
 - start auction din lista si din pagina de detalii
 - close auction din lista si din pagina de detalii
@@ -193,6 +212,7 @@ Frontend-ul suporta:
 - imagine principala in lista si galerie in pagina de detalii
 - panou `Bid history` cu cele mai recente bid-uri
 - panou `Live events` cu evenimentele WebSocket receptionate in timp real
+- taxonomie categorie/subcategorie in create, edit, listare si detalii
 
 ## Componente cheie
 
@@ -313,6 +333,12 @@ Retine imaginile asociate unei licitatii:
 
 `image_url` retine calea media generata de backend dupa upload local. Prima imagine din `display_order` este folosita ca imagine principala in listare, iar toate imaginile sunt afisate in galerie in pagina de detalii.
 
+Persistenta media locala foloseste:
+
+- `auction-api/src/main/resources/static/demo-images/` pentru imaginile demo seed-uite
+- `uploads/` pentru imaginile uploadate in runtime
+- `scripts/generate_thematic_demo_assets.mjs` pentru generarea asset-urilor demo
+
 ### `outbox_events`
 
 Retine evenimentele de integrare generate de `auction-api`.
@@ -369,7 +395,28 @@ In frontend:
 - UI-ul trimite `POST /api/auctions` ca `multipart/form-data`
 - dupa creare, UI-ul redirectioneaza la `/auctions/{id}`
 
-### 1b. Browse and filter auctions
+### 1b. Edit draft auction
+
+Clientul sau UI-ul apeleaza:
+
+- `PUT /api/auctions/{id}`
+
+Aplicatia:
+
+- incarca licitatia cu lock
+- verifica sa fie `DRAFT`
+- actualizeaza metadatele si configuratia licitatiei
+- pastreaza imaginile existente
+- adauga la final imaginile noi uploadate
+
+In frontend:
+
+- utilizatorul intra pe `/auctions/{id}/edit`
+- formularul este prepopulat cu datele licitatiei
+- editarea este permisa doar pentru `DRAFT`
+- dupa salvare, UI-ul redirectioneaza la `/auctions/{id}`
+
+### 1c. Browse and filter auctions
 
 Utilizatorul intra pe:
 
@@ -665,6 +712,7 @@ In acest moment exista:
 - `GET /api/auctions`
 - `GET /api/auctions/{id}`
 - `POST /api/auctions`
+- `PUT /api/auctions/{id}`
 - `POST /api/auctions/{id}/start`
 - `POST /api/auctions/{id}/close`
 - `POST /api/auctions/{id}/bids`
@@ -674,6 +722,7 @@ In acest moment exista:
 
 - `GET /auctions`
 - `GET /auctions/new`
+- `GET /auctions/:id/edit`
 - `GET /auctions/:id`
 
 ## Contracte UI importante
@@ -809,12 +858,10 @@ Exemple de useri locali folositi in testare:
 
 ## Ce urmeaza tehnic
 
-Directia fireasca din punctul actual:
+Backlog-ul si ordinea de implementare se mentin in:
 
-1. test runtime end-to-end pentru fluxul `create -> start -> bid -> anti-sniping -> close/auto-close`
-2. validari suplimentare in UI pentru formularul de create
-3. tratare mai fina a erorilor backend pe campuri in frontend
-4. teste de integrare end-to-end pentru API + RabbitMQ + worker
-5. dead-letter / retry strategy pe consumer side
-6. notificari reale sau analytics peste `audit_events`
-7. securizare si autentificare pentru endpoint-uri
+- `ROADMAP.md`
+
+Urmatorul feature planificat este:
+
+1. Watchlist / Favorite Auctions
