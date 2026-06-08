@@ -47,6 +47,7 @@ import { AuctionWsService } from '../../core/services/auction-ws.service';
   styleUrl: './auction-details.page.scss'
 })
 export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
+  private static readonly CURRENT_BIDDER_ID = 2;
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(AuctionApiService);
   private readonly ws = inject(AuctionWsService);
@@ -55,6 +56,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private auctionId: number | null = null;
   private liveSubscription?: Subscription;
+  private liveMessageTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly suppressedRealtimeToasts = new Map<string, number>();
   private readonly currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -143,6 +145,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.liveSubscription?.unsubscribe();
+    this.clearLiveMessageTimer();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -222,15 +225,18 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
     this.placingBid$.next(true);
     this.error$.next(null);
-    this.liveMessage$.next(null);
+    this.setLiveMessage(null);
 
     this.api
-      .placeBid(auction.id, { bidderId: 2, amount })
+      .placeBid(auction.id, { bidderId: AuctionDetailsPageComponent.CURRENT_BIDDER_ID, amount })
       .pipe(finalize(() => this.placingBid$.next(false)))
       .subscribe({
-        next: () => {
+        next: (createdBid) => {
           this.bidForm.reset({ amount }, { emitEvent: false });
-          this.liveMessage$.next('Bid submitted. Waiting for live confirmation.');
+          this.applyAcceptedBid(createdBid);
+          this.suppressRealtimeToast('BID_PLACED');
+          this.setLiveMessage(`Bid accepted at ${this.formatAmount(createdBid.amount)}. Syncing auction activity...`, 4000);
+          this.loadSnapshot(auction.id);
           this.bidForm.controls.amount.updateValueAndValidity({ emitEvent: false });
         },
         error: (error: HttpErrorResponse) => {
@@ -381,7 +387,12 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
         this.auction$.next({ ...auction, currentPrice: payload.currentPrice });
         this.bids$.next([nextBid, ...this.bids$.value.filter((bid) => bid.id !== nextBid.id)]);
-        this.liveMessage$.next(`A new bid was received for auction #${payload.auctionId}.`);
+        this.setLiveMessage(
+          payload.bidderId === AuctionDetailsPageComponent.CURRENT_BIDDER_ID
+            ? `Your bid is now live at ${this.formatAmount(payload.amount)}.`
+            : `A competing bid moved the price to ${this.formatAmount(payload.currentPrice)}.`,
+          4000
+        );
         this.maybeShowRealtimeToast('BID_PLACED', 'success', 'New bid', `New bid: ${this.formatAmount(payload.amount)}`);
         this.syncBidDefaultAmount();
         break;
@@ -394,7 +405,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
             index === 0 ? { ...bid, auctionExtended: true, newEndTime: payload.newEndTime } : bid
           )
         );
-        this.liveMessage$.next('The auction was extended automatically.');
+        this.setLiveMessage('The auction was extended automatically.', 5000);
         this.maybeShowRealtimeToast('AUCTION_EXTENDED', 'warn', 'Auction extended', 'The auction was extended.');
         break;
       }
@@ -410,7 +421,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
           closedAt: payload.closedAt,
           closedReason: payload.closedReason
         });
-        this.liveMessage$.next('The auction has ended.');
+        this.setLiveMessage('The auction has ended.', 5000);
         this.maybeShowRealtimeToast('AUCTION_CLOSED', 'info', 'Auction closed', 'The auction has been closed.');
         break;
       }
@@ -459,7 +470,22 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     this.placingBid$.next(false);
     this.actionLoading$.next(false);
     this.error$.next(null);
-    this.liveMessage$.next(null);
+    this.setLiveMessage(null);
+  }
+
+  private applyAcceptedBid(createdBid: Bid): void {
+    const auction = this.auction$.value;
+
+    if (!auction) {
+      return;
+    }
+
+    this.auction$.next({
+      ...auction,
+      currentPrice: createdBid.amount
+    });
+    this.bids$.next([createdBid, ...this.bids$.value.filter((bid) => bid.id !== createdBid.id)]);
+    this.syncBidDefaultAmount();
   }
 
   private remainingTimeSnapshot():
@@ -557,6 +583,25 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
   private suppressRealtimeToast(eventType: 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED'): void {
     this.suppressedRealtimeToasts.set(eventType, Date.now() + 5000);
+  }
+
+  private setLiveMessage(message: string | null, autoClearMs?: number): void {
+    this.clearLiveMessageTimer();
+    this.liveMessage$.next(message);
+
+    if (message && autoClearMs) {
+      this.liveMessageTimer = setTimeout(() => {
+        this.liveMessage$.next(null);
+        this.liveMessageTimer = null;
+      }, autoClearMs);
+    }
+  }
+
+  private clearLiveMessageTimer(): void {
+    if (this.liveMessageTimer) {
+      clearTimeout(this.liveMessageTimer);
+      this.liveMessageTimer = null;
+    }
   }
 
   private formatAmount(amount: number): string {
