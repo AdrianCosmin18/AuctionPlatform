@@ -1,4 +1,4 @@
-.create-hero {
+.edit-hero {
   display: grid;
   gap: 1rem;
 }
@@ -11,6 +11,13 @@
   color: var(--p-primary-color);
   text-decoration: none;
   font-weight: 600;
+}
+
+.loading-state {
+  min-height: 20rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .notes-copy {

@@ -1,0 +1,46 @@
+<section class="page-section">
+  <section class="edit-hero mb-4">
+    <div>
+      <a [routerLink]="auction ? ['/auctions', auction.id] : '/auctions'" class="back-link">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to auction</span>
+      </a>
+      <div class="section-kicker">Draft revision</div>
+      <h1 class="page-title mb-1">Edit auction draft</h1>
+      <p class="page-subtitle mb-0">Update catalog metadata and scheduling details before the lot goes live.</p>
+    </div>
+  </section>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  @if (loading) {
+    <div class="loading-state">
+      <p-progressSpinner strokeWidth="4" />
+    </div>
+  } @else if (auction && auction.status === 'DRAFT') {
+    <div class="row g-4">
+      <div class="col-12 col-xl-8">
+        <p-card styleClass="surface-card">
+          <app-auction-form
+            mode="edit"
+            submitLabel="Save changes"
+            [loading]="saving"
+            [initialAuction]="auction"
+            (submitted)="submit($event)" />
+        </p-card>
+      </div>
+
+      <div class="col-12 col-xl-4">
+        <p-card header="Editing rules" styleClass="surface-card">
+          <div class="notes-copy">
+            <p>Only auctions in <strong>DRAFT</strong> status can be edited.</p>
+            <p>Existing images stay attached to the lot. New uploads are appended after the current image set.</p>
+            <p>Saving changes keeps the auction in draft so you can still review it before starting.</p>
+          </div>
+        </p-card>
+      </div>
+    </div>
+  }
+</section>

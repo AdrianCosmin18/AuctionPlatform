@@ -74,41 +74,24 @@ public class AuctionService {
     @Transactional
     public AuctionResponse createWithUploadedImages(CreateAuctionRequest request, List<MultipartFile> imageFiles) {
         OffsetDateTime now = OffsetDateTime.now();
-        validateCreateRequest(request);
+        validateUpsertRequest(request);
 
         AuctionEntity auction = new AuctionEntity();
-        auction.setTitle(request.title());
-        auction.setDescription(trimToNull(request.description()));
-        auction.setCategoryCode(request.categoryCode());
-        auction.setSubcategoryCode(trimToNull(request.subcategoryCode()));
-        auction.setCreatorAuthor(trimToNull(request.creatorAuthor()));
-        auction.setEstimatedYear(request.estimatedYear());
-        auction.setLanguageCode(trimToNull(request.languageCode()));
-        auction.setItemCondition(trimToNull(request.itemCondition()));
-        auction.setAuthenticityStatus(trimToNull(request.authenticityStatus()));
-        auction.setProvenance(trimToNull(request.provenance()));
-        auction.setStartPrice(request.startPrice());
-        auction.setCurrentPrice(request.startPrice());
-        auction.setMinIncrement(request.minIncrement());
+        applyAuctionDraftFields(auction, request, now);
         auction.setStatus(AuctionStatus.DRAFT);
         auction.setStartTime(null);
-        auction.setEndTime(request.endTime());
-        auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);
-        auction.setAntiSnipingExtendSec(request.antiSnipingExtendSec() != null ? request.antiSnipingExtendSec() : 30);
-        auction.setCreatedBy(request.createdBy());
         auction.setWinnerId(null);
         auction.setWinningBidId(null);
         auction.setFinalPrice(null);
         auction.setClosedAt(null);
         auction.setClosedReason(null);
         auction.setCreatedAt(now);
-        auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
         List<String> storedPaths = List.of();
         try {
             storedPaths = auctionMediaStorageService.storeAuctionImages(savedAuction.getId(), imageFiles);
-            saveAuctionImages(savedAuction.getId(), storedPaths);
+            saveAuctionImages(savedAuction.getId(), storedPaths, 0);
         } catch (RuntimeException ex) {
             auctionMediaStorageService.deleteStoredImages(storedPaths);
             throw ex;
@@ -120,38 +103,62 @@ public class AuctionService {
     @Transactional
     public AuctionResponse create(CreateAuctionRequest request, List<String> imageUrls) {
         OffsetDateTime now = OffsetDateTime.now();
-        validateCreateRequest(request);
+        validateUpsertRequest(request);
 
         AuctionEntity auction = new AuctionEntity();
-        auction.setTitle(request.title());
-        auction.setDescription(trimToNull(request.description()));
-        auction.setCategoryCode(request.categoryCode());
-        auction.setSubcategoryCode(trimToNull(request.subcategoryCode()));
-        auction.setCreatorAuthor(trimToNull(request.creatorAuthor()));
-        auction.setEstimatedYear(request.estimatedYear());
-        auction.setLanguageCode(trimToNull(request.languageCode()));
-        auction.setItemCondition(trimToNull(request.itemCondition()));
-        auction.setAuthenticityStatus(trimToNull(request.authenticityStatus()));
-        auction.setProvenance(trimToNull(request.provenance()));
-        auction.setStartPrice(request.startPrice());
-        auction.setCurrentPrice(request.startPrice());
-        auction.setMinIncrement(request.minIncrement());
+        applyAuctionDraftFields(auction, request, now);
         auction.setStatus(AuctionStatus.DRAFT);
         auction.setStartTime(null);
-        auction.setEndTime(request.endTime());
-        auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);
-        auction.setAntiSnipingExtendSec(request.antiSnipingExtendSec() != null ? request.antiSnipingExtendSec() : 30);
-        auction.setCreatedBy(request.createdBy());
         auction.setWinnerId(null);
         auction.setWinningBidId(null);
         auction.setFinalPrice(null);
         auction.setClosedAt(null);
         auction.setClosedReason(null);
         auction.setCreatedAt(now);
-        auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
-        saveAuctionImages(savedAuction.getId(), imageUrls);
+        saveAuctionImages(savedAuction.getId(), imageUrls, 0);
+
+        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+    }
+
+    @Transactional
+    public AuctionResponse update(Long id, CreateAuctionRequest request) {
+        AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
+
+        ensureDraftAuction(auction);
+        validateUpsertRequest(request);
+        applyAuctionDraftFields(auction, request, OffsetDateTime.now());
+
+        AuctionEntity savedAuction = auctionRepository.save(auction);
+        int existingImageCount = loadImages(savedAuction.getId()).size();
+        saveAuctionImages(savedAuction.getId(), request.imageUrls(), existingImageCount);
+
+        return toResponse(savedAuction, loadImages(savedAuction.getId()));
+    }
+
+    @Transactional
+    public AuctionResponse updateWithUploadedImages(Long id, CreateAuctionRequest request, List<MultipartFile> imageFiles) {
+        AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
+
+        ensureDraftAuction(auction);
+        validateUpsertRequest(request);
+        applyAuctionDraftFields(auction, request, OffsetDateTime.now());
+
+        AuctionEntity savedAuction = auctionRepository.save(auction);
+        List<AuctionImageResponse> existingImages = loadImages(savedAuction.getId());
+        saveAuctionImages(savedAuction.getId(), request.imageUrls(), existingImages.size());
+
+        List<String> storedPaths = List.of();
+        try {
+            storedPaths = auctionMediaStorageService.storeAuctionImages(savedAuction.getId(), imageFiles);
+            saveAuctionImages(savedAuction.getId(), storedPaths, existingImages.size() + countNonBlankUrls(request.imageUrls()));
+        } catch (RuntimeException ex) {
+            auctionMediaStorageService.deleteStoredImages(storedPaths);
+            throw ex;
+        }
 
         return toResponse(savedAuction, loadImages(savedAuction.getId()));
     }
@@ -417,15 +424,15 @@ public class AuctionService {
         );
     }
 
-    private void saveAuctionImages(Long auctionId, List<String> imageUrls) {
+    private void saveAuctionImages(Long auctionId, List<String> imageUrls, int startOrder) {
         if (imageUrls == null || imageUrls.isEmpty()) {
             return;
         }
 
         List<AuctionImageEntity> images = new ArrayList<>(imageUrls.size());
+        int displayOrder = startOrder;
 
-        for (int index = 0; index < imageUrls.size(); index++) {
-            String imageUrl = imageUrls.get(index);
+        for (String imageUrl : imageUrls) {
             if (imageUrl == null || imageUrl.isBlank()) {
                 continue;
             }
@@ -433,7 +440,7 @@ public class AuctionService {
             AuctionImageEntity image = new AuctionImageEntity();
             image.setAuctionId(auctionId);
             image.setImageUrl(imageUrl.trim());
-            image.setDisplayOrder(index);
+            image.setDisplayOrder(displayOrder++);
             images.add(image);
         }
 
@@ -442,7 +449,7 @@ public class AuctionService {
         }
     }
 
-    private void validateCreateRequest(CreateAuctionRequest request) {
+    private void validateUpsertRequest(CreateAuctionRequest request) {
         if (!AuctionDomainRules.isValidCategory(request.categoryCode())) {
             throw new BusinessException("Unsupported category code: " + request.categoryCode());
         }
@@ -461,6 +468,48 @@ public class AuctionService {
         if (authenticityStatus != null && !AuctionDomainRules.isValidAuthenticityStatus(authenticityStatus)) {
             throw new BusinessException("Unsupported authenticity status: " + authenticityStatus);
         }
+    }
+
+    private void ensureDraftAuction(AuctionEntity auction) {
+        if (auction.getStatus() != AuctionStatus.DRAFT) {
+            throw new BusinessException("Only DRAFT auctions can be edited");
+        }
+    }
+
+    private void applyAuctionDraftFields(AuctionEntity auction, CreateAuctionRequest request, OffsetDateTime now) {
+        auction.setTitle(request.title().trim());
+        auction.setDescription(trimToNull(request.description()));
+        auction.setCategoryCode(request.categoryCode());
+        auction.setSubcategoryCode(trimToNull(request.subcategoryCode()));
+        auction.setCreatorAuthor(trimToNull(request.creatorAuthor()));
+        auction.setEstimatedYear(request.estimatedYear());
+        auction.setLanguageCode(trimToNull(request.languageCode()));
+        auction.setItemCondition(trimToNull(request.itemCondition()));
+        auction.setAuthenticityStatus(trimToNull(request.authenticityStatus()));
+        auction.setProvenance(trimToNull(request.provenance()));
+        auction.setStartPrice(request.startPrice());
+        auction.setCurrentPrice(request.startPrice());
+        auction.setMinIncrement(request.minIncrement());
+        auction.setEndTime(request.endTime());
+        auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);
+        auction.setAntiSnipingExtendSec(request.antiSnipingExtendSec() != null ? request.antiSnipingExtendSec() : 30);
+        auction.setCreatedBy(request.createdBy());
+        auction.setUpdatedAt(now);
+    }
+
+    private int countNonBlankUrls(List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return 0;
+        }
+
+        int count = 0;
+        for (String imageUrl : imageUrls) {
+            if (imageUrl != null && !imageUrl.isBlank()) {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private String trimToNull(String value) {

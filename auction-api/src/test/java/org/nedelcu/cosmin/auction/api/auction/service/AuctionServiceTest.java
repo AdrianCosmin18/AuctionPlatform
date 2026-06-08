@@ -172,6 +172,80 @@ class AuctionServiceTest {
     }
 
     @Test
+    void updateDraftAuctionReusesFormFieldsAndAppendsNewImages() {
+        Long auctionId = 44L;
+        OffsetDateTime endTime = OffsetDateTime.now().plusHours(6);
+
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(auctionId);
+        auction.setStatus(AuctionStatus.DRAFT);
+        auction.setCreatedAt(OffsetDateTime.now().minusDays(1));
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(auctionImageRepository.findByAuctionIdOrderByDisplayOrderAsc(auctionId)).thenReturn(List.of(existingImage(1L, auctionId, 0)));
+
+        AuctionResponse response = auctionService.update(auctionId, new org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest(
+                "Updated lot",
+                "Updated description",
+                "RARE_BOOKS",
+                "SIGNED_COPIES",
+                "Updated author",
+                1910,
+                "Romanian",
+                "GOOD",
+                "VERIFIED",
+                "Updated provenance",
+                new BigDecimal("250.00"),
+                new BigDecimal("15.00"),
+                endTime,
+                120,
+                45,
+                5L,
+                List.of("https://img.test/new-image.jpg")
+        ));
+
+        verify(auctionImageRepository).saveAll(auctionImagesCaptor.capture());
+        assertThat(auctionImagesCaptor.getValue()).hasSize(1);
+        assertThat(auctionImagesCaptor.getValue().get(0).getDisplayOrder()).isEqualTo(1);
+        assertThat(auction.getTitle()).isEqualTo("Updated lot");
+        assertThat(auction.getCurrentPrice()).isEqualByComparingTo("250.00");
+        assertThat(response.status()).isEqualTo(AuctionStatus.DRAFT);
+    }
+
+    @Test
+    void updateRejectsNonDraftAuction() {
+        Long auctionId = 45L;
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(auctionId);
+        auction.setStatus(AuctionStatus.RUNNING);
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+
+        assertThatThrownBy(() -> auctionService.update(auctionId, new org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest(
+                "Invalid update",
+                null,
+                "RARE_BOOKS",
+                "SIGNED_COPIES",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new BigDecimal("100.00"),
+                new BigDecimal("5.00"),
+                OffsetDateTime.now().plusHours(1),
+                30,
+                30,
+                1L,
+                List.of()
+        )))
+                .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
+                .hasMessageContaining("Only DRAFT auctions can be edited");
+    }
+
+    @Test
     void placeBidPublishesBidPlacedAndAuctionExtendedWhenInsideAntiSnipingWindow() {
         Long auctionId = 10L;
         OffsetDateTime initialEndTime = OffsetDateTime.now().plusSeconds(10);
@@ -305,5 +379,14 @@ class AuctionServiceTest {
         auction.setAntiSnipingWindowSec(antiSnipingWindowSec);
         auction.setAntiSnipingExtendSec(antiSnipingExtendSec);
         return auction;
+    }
+
+    private AuctionImageEntity existingImage(Long id, Long auctionId, int displayOrder) {
+        AuctionImageEntity image = new AuctionImageEntity();
+        image.setId(id);
+        image.setAuctionId(auctionId);
+        image.setImageUrl("https://img.test/existing.jpg");
+        image.setDisplayOrder(displayOrder);
+        return image;
     }
 }
