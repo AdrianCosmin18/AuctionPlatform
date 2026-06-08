@@ -21,5 +21,12 @@ services:
       RABBITMQ_DEFAULT_USER: auctions
       RABBITMQ_DEFAULT_PASS: auctions
 
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: auctions-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   pgdata:

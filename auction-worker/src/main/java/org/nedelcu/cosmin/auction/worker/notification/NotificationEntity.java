@@ -49,6 +49,19 @@ public class NotificationEntity {
     @Column(name = "read_at")
     private OffsetDateTime readAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "email_delivery_status")
+    private EmailDeliveryStatus emailDeliveryStatus;
+
+    @Column(name = "email_sent_at")
+    private OffsetDateTime emailSentAt;
+
+    @Column(name = "email_last_attempt_at")
+    private OffsetDateTime emailLastAttemptAt;
+
+    @Column(name = "email_last_error")
+    private String emailLastError;
+
     public NotificationEntity() {
     }
 
@@ -61,7 +74,11 @@ public class NotificationEntity {
             String message,
             boolean read,
             OffsetDateTime createdAt,
-            OffsetDateTime readAt
+            OffsetDateTime readAt,
+            EmailDeliveryStatus emailDeliveryStatus,
+            OffsetDateTime emailSentAt,
+            OffsetDateTime emailLastAttemptAt,
+            String emailLastError
     ) {
         this.id = id;
         this.userId = userId;
@@ -72,5 +89,9 @@ public class NotificationEntity {
         this.read = read;
         this.createdAt = createdAt;
         this.readAt = readAt;
+        this.emailDeliveryStatus = emailDeliveryStatus;
+        this.emailSentAt = emailSentAt;
+        this.emailLastAttemptAt = emailLastAttemptAt;
+        this.emailLastError = emailLastError;
     }
 }

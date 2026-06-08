@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,8 +38,16 @@ class NotificationServiceTest {
     @Mock
     private AuctionWatchlistRepository auctionWatchlistRepository;
 
+    @Mock
+    private EmailNotificationService emailNotificationService;
+
     @InjectMocks
     private NotificationService notificationService;
+
+    @BeforeEach
+    void setUp() {
+        when(notificationRepository.save(any(NotificationEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
 
     @Test
     void handleBidPlacedCreatesSellerAndOutbidNotifications() {
@@ -59,6 +68,7 @@ class NotificationServiceTest {
         ));
 
         verify(notificationRepository, times(3)).save(any(NotificationEntity.class));
+        verify(emailNotificationService, times(3)).deliver(any(NotificationEntity.class));
     }
 
     @Test
@@ -81,5 +91,6 @@ class NotificationServiceTest {
         ));
 
         verify(notificationRepository, times(5)).save(any(NotificationEntity.class));
+        verify(emailNotificationService, times(5)).deliver(any(NotificationEntity.class));
     }
 }

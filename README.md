@@ -57,6 +57,7 @@ Responsabilitati principale:
 - valideaza indirect contractul dintre publisher si consumer
 - persista un audit tehnic in tabela `audit_events`
 - genereaza notificari in-app in tabela `notifications`
+- livreaza email notifications pentru evenimentele eligibile
 - reprezinta locul in care pot fi adaugate ulterior notificari, analytics sau alte procese asincrone
 
 ### `auction-ui`
@@ -137,6 +138,11 @@ npm start
 - user: `auctions`
 - parola: `auctions`
 
+9. MailHog UI:
+
+- `http://localhost:8025`
+- SMTP local: `localhost:1025`
+
 ## Structura aplicatiei
 
 Codul principal este in `auction-api/src/main/java/org/nedelcu/cosmin/auction/api`.
@@ -187,6 +193,7 @@ Backend-ul suporta:
 - listare notificari pentru userul curent
 - unread notifications count
 - `mark as read` si `mark all as read`
+- email notifications pentru `AUCTION_WON`, `OUTBID` si `AUCTION_CLOSED`
 - pornire licitatie
 - inchidere licitatie
 - inchidere automata a licitatiilor expirate
@@ -199,6 +206,7 @@ Backend-ul suporta:
 - broadcast WebSocket pentru evenimente live
 - audit al evenimentelor procesate in `audit_events`
 - generare asincrona de notificari in-app in `notifications`
+- tracking simplu pentru livrarea email direct in tabela `notifications`
 - stocare locala pentru imaginile uploadate si servire din `/media/**`
 
 Frontend-ul suporta:
@@ -299,6 +307,12 @@ Tipuri suportate acum:
 - `AUCTION_EXTENDED`
 - `NEW_BID_ON_OWN_AUCTION`
 
+Tipurile care trimit email in MVP sunt:
+
+- `AUCTION_WON`
+- `OUTBID`
+- `AUCTION_CLOSED`
+
 Fluxul actual este:
 
 1. `auction-api` scrie evenimentul in `outbox_events`
@@ -308,6 +322,56 @@ Fluxul actual este:
 5. worker-ul creeaza una sau mai multe notificari in `notifications`
 6. `auction-ui` citeste notificarile prin REST si afiseaza unread badge + lista completa
 7. pentru notificari noi de tip `AUCTION_WON`, UI afiseaza si un toast global in dreapta-sus
+8. pentru tipurile eligibile, worker-ul incearca si livrarea email prin SMTP local
+
+Schema simplificata a fluxului:
+
+```text
+[User in UI]
+    |
+    | HTTP request
+    v
+[auction-ui] ------------------------------.
+    |                                      |
+    | POST /api/auctions/{id}/bids         | WebSocket live event
+    v                                      |
+[auction-api]                              |
+    |                                      |
+    | 1. valideaza business rule           |
+    | 2. salveaza bid / close / extend     |
+    | 3. scrie event in outbox_events      |
+    | 4. trimite live event spre UI        |
+    v                                      |
+[PostgreSQL]                               |
+    |                                      |
+    | outbox publisher citeste NEW         |
+    v                                      |
+[RabbitMQ] --------------------------------'
+    |
+    | message: BID_PLACED / AUCTION_EXTENDED / AUCTION_CLOSED
+    v
+[auction-worker]
+    |
+    | 1. consuma mesajul
+    | 2. salveaza audit in audit_events
+    | 3. genereaza notifications in DB
+    | 4. trimite email daca notificarea e eligibila
+    v
+[notifications table]
+    |
+    | REST polling
+    v
+[auction-ui notifications]
+    |
+    | badge / lista / toast global AUCTION_WON
+    v
+[User sees notification]
+
+[MailHog / SMTP]
+    ^
+    |
+    '---- email din worker pentru tipurile eligibile
+```
 
 ### 6. Frontend reactiv
 
@@ -408,12 +472,17 @@ Retine notificarile in-app pentru fiecare utilizator:
 - `is_read`
 - `created_at`
 - `read_at`
+- `email_delivery_status`
+- `email_sent_at`
+- `email_last_attempt_at`
+- `email_last_error`
 
 Pentru MVP:
 
 - notificarile sunt generate asincron in `auction-worker`
 - API-ul doar expune listarea si actiunile de read state
 - user-ul curent este rezolvat in continuare prin header-ul `X-User-Id`
+- worker-ul trimite email doar pentru tipurile importante, iar statusul livrarii ramane pe notificare
 
 ### `outbox_events`
 
@@ -549,6 +618,19 @@ In frontend:
 - exista si actiunea `Mark all as read`
 - daca notificarea are `auctionId`, UI ofera link direct catre pagina licitatiei
 - pentru notificari noi de tip `AUCTION_WON`, UI afiseaza automat un toast global, o singura data per notificare
+
+### 1f. Deliver email notification
+
+Cand worker-ul creeaza o notificare eligibila pentru email:
+
+- cauta email-ul user-ului in tabela `users`
+- construieste un email simplu cu `title` + `message`
+- trimite prin SMTP local catre `MailHog`
+- salveaza pe notificare unul dintre statusurile:
+  - `PENDING`
+  - `SENT`
+  - `SKIPPED`
+  - `FAILED`
 
 ### 2. Start auction
 
@@ -808,6 +890,8 @@ Fluxul este:
 3. `auction-worker` consuma mesajul din `auction.events.queue`
 4. worker-ul deserializeaza payload-ul in functie de `eventType`
 5. worker-ul salveaza un audit in `audit_events`
+6. worker-ul creeaza notificari in-app
+7. worker-ul trimite email pentru tipurile eligibile si actualizeaza statusul de delivery
 
 Campurile de audit salvate de worker:
 
@@ -835,6 +919,12 @@ Tipurile de notificari in-app suportate acum sunt:
 - `AUCTION_CLOSED`
 - `AUCTION_EXTENDED`
 - `NEW_BID_ON_OWN_AUCTION`
+
+Tipurile care trimit email in MVP sunt:
+
+- `AUCTION_WON`
+- `OUTBID`
+- `AUCTION_CLOSED`
 
 ## Endpoint-uri actuale
 
@@ -1014,6 +1104,14 @@ Tipurile de evenimente folosite in UI sunt:
 4. UI-ul actualizeaza badge-ul unread din header
 5. UI-ul afiseaza imediat si un toast global in coltul dreapta-sus
 
+### Scenariul 10: email de outbid
+
+1. utilizatorul A este depasit de un bid mai mare
+2. worker-ul creeaza notificarea `OUTBID`
+3. worker-ul rezolva email-ul user-ului din tabela `users`
+4. worker-ul trimite email prin `MailHog`
+5. notificarea este marcata cu `email_delivery_status = SENT`
+
 ## Date de test utile
 
 Exemple de useri locali folositi in testare:
@@ -1029,4 +1127,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. Email Notifications
+1. My Auctions / My Bids / My Watchlist

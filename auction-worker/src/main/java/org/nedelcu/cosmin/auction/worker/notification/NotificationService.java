@@ -25,6 +25,7 @@ public class NotificationService {
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm");
 
     private final NotificationRepository notificationRepository;
+    private final EmailNotificationService emailNotificationService;
     private final AuctionRepository auctionRepository;
     private final BidRepository bidRepository;
     private final AuctionWatchlistRepository auctionWatchlistRepository;
@@ -142,10 +143,10 @@ public class NotificationService {
 
     private void saveNotification(Long userId, Long auctionId, NotificationType type, String title, String message) {
         if (userId == null) {
-          return;
+            return;
         }
 
-        notificationRepository.save(NotificationEntity.builder()
+        NotificationEntity notification = notificationRepository.save(NotificationEntity.builder()
                 .userId(userId)
                 .auctionId(auctionId)
                 .type(type)
@@ -154,7 +155,12 @@ public class NotificationService {
                 .read(false)
                 .createdAt(OffsetDateTime.now())
                 .readAt(null)
+                .emailDeliveryStatus(EmailDeliveryStatus.PENDING)
+                .emailSentAt(null)
+                .emailLastAttemptAt(null)
+                .emailLastError(null)
                 .build());
+        emailNotificationService.deliver(notification);
     }
 
     private String formatAmount(BigDecimal amount) {
