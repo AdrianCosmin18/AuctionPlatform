@@ -21,6 +21,17 @@
           </div>
           <a pButton routerLink="/auctions" icon="pi pi-home" label="Browse Auctions" severity="contrast"></a>
           <a pButton routerLink="/my-watchlist" icon="pi pi-heart" label="My Watchlist" severity="secondary" [text]="true"></a>
+          <a pButton routerLink="/notifications" severity="secondary" [text]="true" styleClass="notifications-link">
+            <span class="notifications-link__content">
+              <i class="pi pi-bell"></i>
+              <span>Notifications</span>
+              @if (unreadCount$ | async; as unreadCount) {
+                @if (unreadCount > 0) {
+                  <span class="notifications-badge">{{ unreadCount }}</span>
+                }
+              }
+            </span>
+          </a>
           <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="List an Item" severity="secondary" [outlined]="true"></a>
         </div>
       </ng-template>

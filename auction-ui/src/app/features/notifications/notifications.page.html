@@ -1,0 +1,81 @@
+<section class="page-section">
+  <section class="notifications-hero mb-4">
+    <div>
+      <a routerLink="/auctions" class="back-link">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to marketplace</span>
+      </a>
+      <div class="section-kicker">Activity feed</div>
+      <h1 class="page-title mb-1">Notifications</h1>
+      <p class="page-subtitle mb-0">Track outbids, auction results, and important activity from the lots you follow.</p>
+    </div>
+  </section>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  <p-card styleClass="surface-card">
+    @if (loading) {
+      <div class="loading-state">
+        <p-progressSpinner strokeWidth="4" />
+      </div>
+    } @else {
+      <div class="notifications-toolbar">
+        <div>
+          <strong>{{ notifications.length }}</strong>
+          <span> notifications</span>
+          <span class="notifications-toolbar__unread">{{ unreadCount }} unread</span>
+        </div>
+        <p-button
+          label="Mark all as read"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="unreadCount === 0"
+          [loading]="actionLoadingId === 'ALL'"
+          (onClick)="markAllAsRead()"
+        />
+      </div>
+
+      @if (notifications.length > 0) {
+        <div class="notifications-list">
+          @for (notification of notifications; track notification.id) {
+            <article class="notification-card" [class.notification-card--unread]="!notification.read">
+              <div class="notification-card__topline">
+                <p-tag [value]="notification.type" [severity]="notificationSeverity(notification.type)" />
+                <span>{{ notification.createdAt | date: 'MMM d, y, h:mm a' }}</span>
+              </div>
+
+              <div class="notification-card__body">
+                <div>
+                  <h3>{{ notification.title }}</h3>
+                  <p>{{ notification.message }}</p>
+                  @if (notification.auctionId) {
+                    <a [routerLink]="['/auctions', notification.auctionId]">Open auction #{{ notification.auctionId }}</a>
+                  }
+                </div>
+
+                @if (!notification.read) {
+                  <p-button
+                    icon="pi pi-check"
+                    label="Mark read"
+                    severity="secondary"
+                    [outlined]="true"
+                    [loading]="actionLoadingId === notification.id"
+                    (onClick)="markAsRead(notification)"
+                  />
+                }
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">
+          <i class="pi pi-bell"></i>
+          <h3>No notifications yet</h3>
+          <p>Your in-app activity feed will appear here once auctions start generating events.</p>
+        </div>
+      }
+    }
+  </p-card>
+</section>

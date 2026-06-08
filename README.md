@@ -44,6 +44,7 @@ Contine contractele comune folosite intre procese:
 - `BidPlacedEvent`
 - `AuctionExtendedEvent`
 - `AuctionClosedEvent`
+- `NotificationType`
 
 Scopul lui este sa elimine dublarea contractelor de integrare intre API si worker.
 
@@ -55,6 +56,7 @@ Responsabilitati principale:
 - deserializeaza payload-ul pe baza `eventType`
 - valideaza indirect contractul dintre publisher si consumer
 - persista un audit tehnic in tabela `audit_events`
+- genereaza notificari in-app in tabela `notifications`
 - reprezinta locul in care pot fi adaugate ulterior notificari, analytics sau alte procese asincrone
 
 ### `auction-ui`
@@ -66,6 +68,7 @@ Responsabilitati principale:
 - permite editarea unei licitatii `DRAFT` din browser
 - afiseaza pagina de detalii pentru o licitatie
 - permite adaugarea unei licitatii in watchlist si gestionarea `My Watchlist`
+- afiseaza notificari in-app si unread badge
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
 - consuma evenimente live prin WebSocket/STOMP
@@ -181,6 +184,9 @@ Backend-ul suporta:
 - citire licitatie dupa id
 - watch / unwatch pentru licitatii
 - listare `My Watchlist`
+- listare notificari pentru userul curent
+- unread notifications count
+- `mark as read` si `mark all as read`
 - pornire licitatie
 - inchidere licitatie
 - inchidere automata a licitatiilor expirate
@@ -192,6 +198,7 @@ Backend-ul suporta:
 - publicare evenimente in RabbitMQ
 - broadcast WebSocket pentru evenimente live
 - audit al evenimentelor procesate in `audit_events`
+- generare asincrona de notificari in-app in `notifications`
 - stocare locala pentru imaginile uploadate si servire din `/media/**`
 
 Frontend-ul suporta:
@@ -205,6 +212,7 @@ Frontend-ul suporta:
 - detalii licitatie la `/auctions/:id`
 - watch / unwatch din marketplace si pagina de detalii
 - pagina dedicata `My Watchlist` la `/my-watchlist`
+- pagina dedicata `Notifications` la `/notifications`
 - start auction din lista si din pagina de detalii
 - close auction din lista si din pagina de detalii
 - plasare bid din UI
@@ -220,6 +228,8 @@ Frontend-ul suporta:
 - panou `Live events` cu evenimentele WebSocket receptionate in timp real
 - taxonomie categorie/subcategorie in create, edit, listare si detalii
 - `watchers count` in marketplace, details si watchlist
+- unread badge in header pentru notificari
+- `mark as read` si `mark all as read` pentru notificari
 
 ## Componente cheie
 
@@ -266,6 +276,7 @@ Worker-ul nu se opreste la log-uri. Pentru fiecare eveniment consumat:
 - deserializeaza payload-ul in contractul corect
 - extrage `aggregateId` din payload
 - persista payload-ul original in `audit_events`
+- genereaza notificari in-app relevante pentru userii afectati
 
 Audit-ul are rolul de:
 
@@ -273,6 +284,28 @@ Audit-ul are rolul de:
 - debugging
 - baza pentru analytics sau notificari ulterioare
 - dovada ca worker-ul a procesat evenimentul
+
+### 5b. In-app notifications
+
+Notificarile in-app sunt generate in `auction-worker` pe baza evenimentelor deja publicate prin outbox.
+
+Tipuri suportate acum:
+
+- `OUTBID`
+- `AUCTION_WON`
+- `AUCTION_LOST`
+- `AUCTION_CLOSED`
+- `AUCTION_EXTENDED`
+- `NEW_BID_ON_OWN_AUCTION`
+
+Fluxul actual este:
+
+1. `auction-api` scrie evenimentul in `outbox_events`
+2. `OutboxPublisher` il publica in RabbitMQ
+3. `auction-worker` consuma evenimentul
+4. worker-ul il auditeaza in `audit_events`
+5. worker-ul creeaza una sau mai multe notificari in `notifications`
+6. `auction-ui` citeste notificarile prin REST si afiseaza unread badge + lista completa
 
 ### 6. Frontend reactiv
 
@@ -302,6 +335,7 @@ Tabele principale:
 - `auctions`
 - `auction_images`
 - `auction_watchlist`
+- `notifications`
 - `bids`
 - `outbox_events`
 - `audit_events`
@@ -359,6 +393,25 @@ Pentru MVP:
 
 - user-ul curent este transmis simplu prin header-ul `X-User-Id`
 - UI foloseste acelasi model simplificat cu `user_id` numeric, fara autentificare completa
+
+### `notifications`
+
+Retine notificarile in-app pentru fiecare utilizator:
+
+- `user_id`
+- `auction_id`
+- `type`
+- `title`
+- `message`
+- `is_read`
+- `created_at`
+- `read_at`
+
+Pentru MVP:
+
+- notificarile sunt generate asincron in `auction-worker`
+- API-ul doar expune listarea si actiunile de read state
+- user-ul curent este rezolvat in continuare prin header-ul `X-User-Id`
 
 ### `outbox_events`
 
@@ -470,6 +523,29 @@ In frontend:
 - utilizatorul poate urmari sau opri urmarirea din marketplace si din pagina de detalii
 - exista pagina `My Watchlist`
 - UI afiseaza numarul de watchers pentru fiecare lot relevant
+
+### 1e. Read notifications
+
+Clientul sau UI-ul apeleaza:
+
+- `GET /api/me/notifications`
+- `GET /api/me/notifications/unread-count`
+- `POST /api/me/notifications/{id}/read`
+- `POST /api/me/notifications/read-all`
+
+Aplicatia:
+
+- citeste notificarile user-ului curent in ordine descrescatoare dupa `createdAt`
+- returneaza unread count pentru badge-ul din header
+- permite marcarea individuala sau bulk ca citite
+
+In frontend:
+
+- unread count este polled periodic pentru header badge
+- utilizatorul poate intra in `/notifications`
+- fiecare notificare poate fi marcata individual ca citita
+- exista si actiunea `Mark all as read`
+- daca notificarea are `auctionId`, UI ofera link direct catre pagina licitatiei
 
 ### 2. Start auction
 
@@ -748,6 +824,15 @@ In acest moment exista:
 - `AUCTION_EXTENDED`
 - `AUCTION_CLOSED`
 
+Tipurile de notificari in-app suportate acum sunt:
+
+- `OUTBID`
+- `AUCTION_WON`
+- `AUCTION_LOST`
+- `AUCTION_CLOSED`
+- `AUCTION_EXTENDED`
+- `NEW_BID_ON_OWN_AUCTION`
+
 ## Endpoint-uri actuale
 
 - `GET /api/auctions`
@@ -757,6 +842,10 @@ In acest moment exista:
 - `POST /api/auctions/{id}/watch`
 - `DELETE /api/auctions/{id}/watch`
 - `GET /api/auctions/me/watchlist`
+- `GET /api/me/notifications`
+- `GET /api/me/notifications/unread-count`
+- `POST /api/me/notifications/{id}/read`
+- `POST /api/me/notifications/read-all`
 - `POST /api/auctions/{id}/start`
 - `POST /api/auctions/{id}/close`
 - `POST /api/auctions/{id}/bids`
@@ -767,6 +856,7 @@ In acest moment exista:
 - `GET /auctions`
 - `GET /auctions/new`
 - `GET /my-watchlist`
+- `GET /notifications`
 - `GET /auctions/:id/edit`
 - `GET /auctions/:id`
 
@@ -896,6 +986,23 @@ Tipurile de evenimente folosite in UI sunt:
 4. UI-ul filtreaza local lista fara request suplimentar
 5. utilizatorul intra direct pe licitatia relevanta sau executa o actiune rapida
 
+### Scenariul 7: notificare de outbid
+
+1. utilizatorul A liciteaza pe o licitatie
+2. utilizatorul B trimite ulterior un bid mai mare
+3. sistemul accepta bid-ul nou si publica `BID_PLACED`
+4. `auction-worker` creeaza notificare `OUTBID` pentru bidderii anteriori afectati
+5. UI-ul afiseaza badge unread pentru utilizatorul relevant
+6. utilizatorul intra in `/notifications` si merge direct la licitatie
+
+### Scenariul 8: notificare de inchidere
+
+1. licitatia se inchide manual sau automat
+2. sistemul publica `AUCTION_CLOSED`
+3. `auction-worker` creeaza notificari pentru winner, losing bidders, seller si watcherii relevanti
+4. UI-ul actualizeaza unread badge
+5. utilizatorii pot marca notificarile ca citite individual sau bulk
+
 ## Date de test utile
 
 Exemple de useri locali folositi in testare:
@@ -911,4 +1018,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. In-app Notifications
+1. Email Notifications

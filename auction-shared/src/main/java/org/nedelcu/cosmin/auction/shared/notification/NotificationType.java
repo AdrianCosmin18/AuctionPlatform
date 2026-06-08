@@ -1,0 +1,11 @@
+package org.nedelcu.cosmin.auction.shared.notification;
+
+public enum NotificationType {
+    OUTBID,
+    AUCTION_WON,
+    AUCTION_LOST,
+    AUCTION_CLOSED,
+    AUCTION_EXTENDED,
+    WATCHED_AUCTION_ENDING_SOON,
+    NEW_BID_ON_OWN_AUCTION
+}

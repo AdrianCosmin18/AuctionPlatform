@@ -23,6 +23,11 @@ export const routes: Routes = [
       import('./features/my-watchlist/my-watchlist.page').then((m) => m.MyWatchlistPageComponent)
   },
   {
+    path: 'notifications',
+    loadComponent: () =>
+      import('./features/notifications/notifications.page').then((m) => m.NotificationsPageComponent)
+  },
+  {
     path: 'auctions/:id/edit',
     loadComponent: () =>
       import('./features/auction-edit/auction-edit.page').then((m) => m.AuctionEditPageComponent)
