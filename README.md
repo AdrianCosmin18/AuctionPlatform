@@ -70,6 +70,7 @@ Responsabilitati principale:
 - afiseaza pagina de detalii pentru o licitatie
 - permite adaugarea unei licitatii in watchlist si gestionarea `My Watchlist`
 - ofera zona `My Area` cu pagini separate pentru `My Auctions`, `My Bids` si `My Watchlist`
+- suporta `reserve price` optional si expune starea `reserve met / not met`
 - afiseaza notificari in-app si unread badge
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
@@ -195,6 +196,7 @@ Backend-ul suporta:
 - listare `My Auctions`
 - listare `My Bids`
 - listare `My Watchlist`
+- reserve price optional in create, edit, close summary si evenimente
 - listare notificari pentru userul curent
 - unread notifications count
 - `mark as read` si `mark all as read`
@@ -228,6 +230,7 @@ Frontend-ul suporta:
 - pagina dedicata `My Bids` la `/my-bids`
 - pagina dedicata `My Watchlist` la `/my-watchlist`
 - pagina dedicata `Notifications` la `/notifications`
+- afisare `Reserve met`, `Reserve pending` sau `Reserve not met` in paginile relevante
 - start auction din lista si din pagina de detalii
 - close auction din lista si din pagina de detalii
 - plasare bid din UI
@@ -245,6 +248,7 @@ Frontend-ul suporta:
 - `watchers count` in marketplace, details si watchlist
 - control operational pentru `My Auctions`: `Edit`, `Start`, `Close`
 - sumar pentru `My Bids`: latest bid, highest bid, total bids, leading/won state
+- close outcome corect pentru reserve price: lot vandut doar daca `reservePrice` este atins
 - unread badge in header pentru notificari
 - toast global in coltul ecranului pentru notificari noi de tip `AUCTION_WON`
 - `mark as read` si `mark all as read` pentru notificari
@@ -427,6 +431,8 @@ Retine starea curenta a licitatiei:
 - `final_price`
 - `closed_at`
 - `closed_reason`
+- `reserve_price`
+- `reserve_met`
 - `anti_sniping_window_sec`
 - `anti_sniping_extend_sec`
 - `version`
@@ -710,7 +716,9 @@ Aplicatia:
 - incarca licitatia cu `PESSIMISTIC_WRITE`
 - verifica sa fie `RUNNING`
 - determina bid-ul castigator, daca exista
+- verifica daca `reservePrice` a fost atins, daca este configurat
 - seteaza `winnerId`, `winningBidId`, `finalPrice`, `closedAt`, `closedReason = MANUAL`
+- daca `reservePrice` nu este atins, licitatia se inchide fara winner si cu `reserveMet = false`
 - seteaza statusul `ENDED`
 - salveaza evenimentul `AUCTION_CLOSED` in `outbox_events`
 - trimite `AUCTION_CLOSED` pe WebSocket
@@ -769,6 +777,11 @@ Formula anti-sniping:
 - `currentPrice` porneste din `startPrice`
 - un bid nou trebuie sa fie cel putin `currentPrice + minIncrement`
 - dupa acceptare, `currentPrice` devine suma bid-ului
+- daca exista `reservePrice`, lotul se vinde doar daca highest bid-ul final este `>= reservePrice`
+- `reserveMet` devine:
+  - `null` daca licitatia nu are reserve price
+  - `true` daca pretul curent a atins reserve price
+  - `false` daca licitatia se inchide fara sa atinga reserve price
 
 ### Reguli de integrare
 
@@ -946,6 +959,7 @@ Tipurile care trimit email in MVP sunt:
 - `GET /api/auctions/me/watchlist`
 - `GET /api/auctions/me/created`
 - `GET /api/auctions/me/bids`
+- `POST /api/auctions` si `PUT /api/auctions/{id}` accepta si `reservePrice`
 - `GET /api/me/notifications`
 - `GET /api/me/notifications/unread-count`
 - `POST /api/me/notifications/{id}/read`
@@ -1140,4 +1154,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. Advanced bid increment rules
+1. Buy Now

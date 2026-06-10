@@ -21,6 +21,8 @@ public record AuctionResponse(
         BigDecimal startPrice,
         BigDecimal currentPrice,
         BigDecimal minIncrement,
+        BigDecimal reservePrice,
+        Boolean reserveMet,
         AuctionStatus status,
         OffsetDateTime startTime,
         OffsetDateTime endTime,

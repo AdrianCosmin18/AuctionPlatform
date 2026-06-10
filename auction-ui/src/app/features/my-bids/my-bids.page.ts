@@ -92,6 +92,10 @@ export class MyBidsPageComponent implements OnInit {
   }
 
   bidStateSeverity(bid: MyBidAuction): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+    if (bid.auction.reservePrice !== null && bid.auction.status === 'ENDED' && bid.auction.reserveMet === false) {
+      return 'secondary';
+    }
+
     if (bid.won) {
       return 'success';
     }
@@ -108,6 +112,10 @@ export class MyBidsPageComponent implements OnInit {
   }
 
   bidStateLabel(bid: MyBidAuction): string {
+    if (bid.auction.reservePrice !== null && bid.auction.status === 'ENDED' && bid.auction.reserveMet === false) {
+      return 'Reserve not met';
+    }
+
     if (bid.won) {
       return 'Won';
     }
@@ -121,5 +129,25 @@ export class MyBidsPageComponent implements OnInit {
     }
 
     return 'Watching contest';
+  }
+
+  reserveLabel(bid: MyBidAuction): string | null {
+    if (bid.auction.reservePrice === null) {
+      return null;
+    }
+
+    if (bid.auction.reserveMet === true) {
+      return 'Reserve met';
+    }
+
+    return bid.auction.status === 'ENDED' ? 'Reserve not met' : 'Reserve pending';
+  }
+
+  reserveSeverity(bid: MyBidAuction): 'success' | 'warn' | 'secondary' {
+    if (bid.auction.reserveMet === true) {
+      return 'success';
+    }
+
+    return bid.auction.status === 'ENDED' ? 'secondary' : 'warn';
   }
 }

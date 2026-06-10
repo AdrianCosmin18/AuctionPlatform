@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { FileUploadModule } from 'primeng/fileupload';
@@ -72,11 +72,12 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
     provenance: [''],
     startPrice: [100, [Validators.required, Validators.min(0.01)]],
     minIncrement: [10, [Validators.required, Validators.min(0.01)]],
+    reservePrice: [null as number | null],
     endTime: ['', [Validators.required]],
     antiSnipingWindowSec: [120],
     antiSnipingExtendSec: [30],
     createdBy: [1, [Validators.required, Validators.min(1)]]
-  });
+  }, { validators: [this.reservePriceValidator()] });
 
   constructor() {
     this.auctionForm.controls.categoryCode.valueChanges.subscribe(() => {
@@ -130,6 +131,7 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
           provenance: this.initialAuction.provenance ?? '',
           startPrice: this.initialAuction.startPrice,
           minIncrement: this.initialAuction.minIncrement,
+          reservePrice: this.initialAuction.reservePrice,
           endTime: this.toDateTimeLocalValue(this.initialAuction.endTime),
           antiSnipingWindowSec: this.initialAuction.antiSnipingWindowSec ?? 120,
           antiSnipingExtendSec: this.initialAuction.antiSnipingExtendSec ?? 30,
@@ -166,6 +168,7 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
         provenance: raw.provenance.trim() || null,
         startPrice: raw.startPrice,
         minIncrement: raw.minIncrement,
+        reservePrice: raw.reservePrice,
         endTime: new Date(raw.endTime).toISOString(),
         antiSnipingWindowSec: raw.antiSnipingWindowSec || null,
         antiSnipingExtendSec: raw.antiSnipingExtendSec || null,
@@ -238,5 +241,25 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
     return imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
       ? imageUrl
       : `${environment.wsBaseUrl}${imageUrl}`;
+  }
+
+  private reservePriceValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const startPrice = Number(control.get('startPrice')?.value);
+      const reservePriceValue = control.get('reservePrice')?.value;
+
+      if (reservePriceValue === null || reservePriceValue === undefined || reservePriceValue === '') {
+        return null;
+      }
+
+      const reservePrice = Number(reservePriceValue);
+      if (!Number.isFinite(startPrice) || !Number.isFinite(reservePrice)) {
+        return null;
+      }
+
+      return reservePrice >= startPrice
+        ? null
+        : { reservePriceBelowStartPrice: true };
+    };
   }
 }

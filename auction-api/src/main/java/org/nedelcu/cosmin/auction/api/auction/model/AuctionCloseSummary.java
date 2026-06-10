@@ -7,6 +7,7 @@ public record AuctionCloseSummary(
         Long winnerId,
         Long winningBidId,
         BigDecimal finalPrice,
-        AuctionCloseReason closedReason
+        AuctionCloseReason closedReason,
+        Boolean reserveMet
 ) {
 }

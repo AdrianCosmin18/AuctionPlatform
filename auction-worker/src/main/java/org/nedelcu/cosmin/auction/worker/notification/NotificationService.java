@@ -80,6 +80,7 @@ public class NotificationService {
     public void handleAuctionClosed(AuctionClosedEvent payload) {
         AuctionEntity auction = auctionRepository.findById(payload.auctionId()).orElse(null);
         Set<Long> losingBidders = new LinkedHashSet<>(bidRepository.findDistinctBidderIdsByAuctionId(payload.auctionId()));
+        boolean reserveNotMet = Boolean.FALSE.equals(payload.reserveMet());
 
         if (payload.winnerId() != null) {
             saveNotification(
@@ -98,7 +99,9 @@ public class NotificationService {
                     payload.auctionId(),
                     NotificationType.AUCTION_LOST,
                     "Auction closed",
-                    "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + " and you did not win."
+                    reserveNotMet
+                            ? "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + " but the reserve price was not met."
+                            : "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + " and you did not win."
             );
         }
 
@@ -108,7 +111,9 @@ public class NotificationService {
                     payload.auctionId(),
                     NotificationType.AUCTION_CLOSED,
                     "Your auction has closed",
-                    "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + "."
+                    reserveNotMet
+                            ? "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + " and the reserve price was not met."
+                            : "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + "."
             );
         }
 
@@ -127,7 +132,9 @@ public class NotificationService {
                     payload.auctionId(),
                     NotificationType.AUCTION_CLOSED,
                     "Watched auction closed",
-                    "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + "."
+                    reserveNotMet
+                            ? "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + " without meeting the reserve price."
+                            : "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + "."
             );
         }
     }

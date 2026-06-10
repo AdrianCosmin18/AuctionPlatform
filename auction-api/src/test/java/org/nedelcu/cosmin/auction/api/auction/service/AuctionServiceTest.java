@@ -131,6 +131,7 @@ class AuctionServiceTest {
                 "Private collection",
                 new BigDecimal("500.00"),
                 new BigDecimal("25.00"),
+                null,
                 endTime,
                 30,
                 30,
@@ -167,6 +168,7 @@ class AuctionServiceTest {
                 null,
                 new BigDecimal("100.00"),
                 new BigDecimal("10.00"),
+                null,
                 endTime,
                 30,
                 30,
@@ -175,6 +177,34 @@ class AuctionServiceTest {
         )))
                 .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
                 .hasMessageContaining("Unsupported subcategory");
+    }
+
+    @Test
+    void createRejectsReservePriceBelowOpeningPrice() {
+        OffsetDateTime endTime = OffsetDateTime.now().plusHours(2);
+
+        assertThatThrownBy(() -> auctionService.create(new org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest(
+                "Lot invalid reserve",
+                "Reserve below opening price",
+                "RARE_BOOKS",
+                "SIGNED_COPIES",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new BigDecimal("100.00"),
+                new BigDecimal("10.00"),
+                new BigDecimal("90.00"),
+                endTime,
+                30,
+                30,
+                1L,
+                List.of()
+        )))
+                .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
+                .hasMessageContaining("Reserve price must be greater than or equal to the opening price");
     }
 
     @Test
@@ -204,6 +234,7 @@ class AuctionServiceTest {
                 "Updated provenance",
                 new BigDecimal("250.00"),
                 new BigDecimal("15.00"),
+                null,
                 endTime,
                 120,
                 45,
@@ -241,6 +272,7 @@ class AuctionServiceTest {
                 null,
                 new BigDecimal("100.00"),
                 new BigDecimal("5.00"),
+                null,
                 OffsetDateTime.now().plusHours(1),
                 30,
                 30,
@@ -433,6 +465,7 @@ class AuctionServiceTest {
         assertThat(response.winningBidId()).isEqualTo(77L);
         assertThat(response.finalPrice()).isEqualByComparingTo("310.00");
         assertThat(response.closedReason()).isEqualTo(AuctionCloseReason.MANUAL);
+        assertThat(response.reserveMet()).isNull();
 
         verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
         assertThat(outboxPayloadCaptor.getValue()).isInstanceOf(AuctionClosedEvent.class);
@@ -440,6 +473,7 @@ class AuctionServiceTest {
         assertThat(closedEvent.winnerId()).isEqualTo(901L);
         assertThat(closedEvent.winningBidId()).isEqualTo(77L);
         assertThat(closedEvent.finalPrice()).isEqualByComparingTo("310.00");
+        assertThat(closedEvent.reserveMet()).isNull();
         assertThat(closedEvent.closedReason()).isEqualTo(AuctionCloseReason.MANUAL);
 
         verify(auctionEventBroadcaster).broadcastToAuction(any(), realtimePayloadCaptor.capture());
@@ -468,6 +502,40 @@ class AuctionServiceTest {
         verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
         assertThat(outboxPayloadCaptor.getValue()).isInstanceOf(AuctionClosedEvent.class);
         verify(auctionEventBroadcaster).broadcastToAuction(any(), any(AuctionRealtimeEvent.class));
+    }
+
+    @Test
+    void closeDoesNotAssignWinnerWhenReservePriceWasNotMet() {
+        Long auctionId = 32L;
+        AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusMinutes(1), 30, 30);
+        auction.setCurrentPrice(new BigDecimal("220.00"));
+        auction.setReservePrice(new BigDecimal("300.00"));
+        auction.setReserveMet(false);
+
+        BidEntity topBid = new BidEntity();
+        topBid.setId(88L);
+        topBid.setAuctionId(auctionId);
+        topBid.setBidderId(901L);
+        topBid.setAmount(new BigDecimal("220.00"));
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auctionId))
+                .thenReturn(Optional.of(topBid));
+        when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuctionResponse response = auctionService.close(auctionId);
+
+        assertThat(response.status()).isEqualTo(AuctionStatus.ENDED);
+        assertThat(response.winnerId()).isNull();
+        assertThat(response.winningBidId()).isNull();
+        assertThat(response.finalPrice()).isEqualByComparingTo("220.00");
+        assertThat(response.reserveMet()).isFalse();
+
+        verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
+        AuctionClosedEvent closedEvent = (AuctionClosedEvent) outboxPayloadCaptor.getValue();
+        assertThat(closedEvent.winnerId()).isNull();
+        assertThat(closedEvent.winningBidId()).isNull();
+        assertThat(closedEvent.reserveMet()).isFalse();
     }
 
     @Test

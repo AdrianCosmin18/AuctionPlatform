@@ -103,6 +103,26 @@ export class MyWatchlistPageComponent implements OnInit {
     }
   }
 
+  reserveLabel(auction: Auction): string | null {
+    if (auction.reservePrice === null) {
+      return null;
+    }
+
+    if (auction.reserveMet === true) {
+      return 'Reserve met';
+    }
+
+    return auction.status === 'ENDED' ? 'Reserve not met' : 'Reserve pending';
+  }
+
+  reserveSeverity(auction: Auction): 'success' | 'warn' | 'secondary' {
+    if (auction.reserveMet === true) {
+      return 'success';
+    }
+
+    return auction.status === 'ENDED' ? 'secondary' : 'warn';
+  }
+
   private resolveImageUrl(imageUrl: string): string {
     return imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
       ? imageUrl

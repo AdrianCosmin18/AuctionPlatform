@@ -50,6 +50,9 @@ public record CreateAuctionRequest(
         @DecimalMin(value = "0.01")
         BigDecimal minIncrement,
 
+        @DecimalMin(value = "0.01")
+        BigDecimal reservePrice,
+
         @NotNull
         OffsetDateTime endTime,
 

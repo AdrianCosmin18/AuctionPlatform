@@ -64,6 +64,12 @@ public class AuctionEntity {
     @Column(name = "min_increment")
     private BigDecimal minIncrement;
 
+    @Column(name = "reserve_price")
+    private BigDecimal reservePrice;
+
+    @Column(name = "reserve_met")
+    private Boolean reserveMet;
+
     @Enumerated(EnumType.STRING)
     private AuctionStatus status;
 

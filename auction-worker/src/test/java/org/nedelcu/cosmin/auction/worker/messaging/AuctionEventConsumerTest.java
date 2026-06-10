@@ -85,6 +85,7 @@ class AuctionEventConsumerTest {
                 99L,
                 44L,
                 new BigDecimal("300.00"),
+                true,
                 AuctionCloseReason.MANUAL,
                 closedAt
         );

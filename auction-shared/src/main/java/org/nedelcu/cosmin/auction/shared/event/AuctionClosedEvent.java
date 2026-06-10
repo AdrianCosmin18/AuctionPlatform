@@ -8,6 +8,7 @@ public record AuctionClosedEvent(
         Long winnerId,
         Long winningBidId,
         BigDecimal finalPrice,
+        Boolean reserveMet,
         AuctionCloseReason closedReason,
         OffsetDateTime closedAt
 ) {

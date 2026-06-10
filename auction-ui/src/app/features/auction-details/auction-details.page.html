@@ -15,6 +15,9 @@
         <div class="d-flex align-items-center gap-2 flex-wrap">
           @if (vm.auction) {
             <p-tag [value]="vm.auction.status" [severity]="statusSeverity(vm.auction.status)" />
+            @if (reserveStatusLabel(vm.auction); as reserveLabel) {
+              <p-tag [value]="reserveLabel" [severity]="reserveStatusSeverity(vm.auction)" />
+            }
             <p-button
               [icon]="vm.auction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
               [label]="vm.auction.watchedByCurrentUser ? 'Watching' : 'Watch'"
@@ -142,6 +145,16 @@
                 <div class="meta-value">{{ vm.auction.minIncrement | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
               </div>
               <div>
+                <span class="meta-label">Reserve price</span>
+                <div class="meta-value">
+                  {{ vm.auction.reservePrice !== null ? (vm.auction.reservePrice | currency: 'EUR' : 'symbol' : '1.2-2') : 'No reserve' }}
+                </div>
+              </div>
+              <div>
+                <span class="meta-label">Reserve status</span>
+                <div class="meta-value">{{ reserveStatusLabel(vm.auction) ?? 'Not applicable' }}</div>
+              </div>
+              <div>
                 <span class="meta-label">Ends at</span>
                 <div class="meta-value">{{ vm.auction.endTime ? (vm.auction.endTime | date: 'medium') : '-' }}</div>
                 <span class="meta-label mt-2">Time remaining</span>
@@ -204,7 +217,9 @@
               <p-message
                 severity="info"
                 [text]="
-                  vm.auction.winnerId
+                  vm.auction.reserveMet === false
+                    ? 'Auction ended without meeting the reserve price.'
+                    : vm.auction.winnerId
                     ? 'Auction ended. Winner: #' + vm.auction.winnerId + '.'
                     : 'Auction ended without a winning bid.'
                 "

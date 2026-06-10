@@ -17,6 +17,8 @@ export interface Auction {
   startPrice: number;
   currentPrice: number;
   minIncrement: number;
+  reservePrice: number | null;
+  reserveMet: boolean | null;
   status: AuctionStatus;
   startTime: string | null;
   endTime: string | null;

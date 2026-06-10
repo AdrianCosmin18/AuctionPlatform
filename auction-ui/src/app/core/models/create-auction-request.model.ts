@@ -11,6 +11,7 @@ export interface CreateAuctionRequest {
   provenance: string | null;
   startPrice: number;
   minIncrement: number;
+  reservePrice: number | null;
   endTime: string;
   antiSnipingWindowSec: number | null;
   antiSnipingExtendSec: number | null;

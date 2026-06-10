@@ -315,7 +315,9 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         const payload = event.payload as AuctionClosedEvent;
         return payload.winnerId
           ? `Final price: ${payload.finalPrice} · Winner #${payload.winnerId}`
-          : `Final price: ${payload.finalPrice} · No winner`;
+          : payload.reserveMet === false
+            ? `Final price: ${payload.finalPrice} · Reserve not met`
+            : `Final price: ${payload.finalPrice} · No winner`;
       }
       default:
         return '';
@@ -352,6 +354,30 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       default:
         return '-';
     }
+  }
+
+  reserveStatusLabel(auction: Auction | null): string | null {
+    if (!auction || auction.reservePrice === null) {
+      return null;
+    }
+
+    if (auction.reserveMet === true) {
+      return 'Reserve met';
+    }
+
+    return auction.status === 'ENDED' ? 'Reserve not met' : 'Reserve pending';
+  }
+
+  reserveStatusSeverity(auction: Auction | null): 'success' | 'warn' | 'secondary' | 'info' {
+    if (!auction || auction.reservePrice === null) {
+      return 'info';
+    }
+
+    if (auction.reserveMet === true) {
+      return 'success';
+    }
+
+    return auction.status === 'ENDED' ? 'secondary' : 'warn';
   }
 
   selectImage(index: number): void {
@@ -454,10 +480,11 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
           winnerId: payload.winnerId,
           winningBidId: payload.winningBidId,
           finalPrice: payload.finalPrice,
+          reserveMet: payload.reserveMet,
           closedAt: payload.closedAt,
           closedReason: payload.closedReason
         });
-        this.setLiveMessage('The auction has ended.', 5000);
+        this.setLiveMessage(payload.reserveMet === false ? 'The auction ended without meeting the reserve price.' : 'The auction has ended.', 5000);
         this.maybeShowRealtimeToast('AUCTION_CLOSED', 'info', 'Auction closed', 'The auction has been closed.');
         break;
       }

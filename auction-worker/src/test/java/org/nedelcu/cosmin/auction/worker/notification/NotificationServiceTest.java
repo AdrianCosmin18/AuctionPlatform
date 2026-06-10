@@ -86,11 +86,36 @@ class NotificationServiceTest {
                 2L,
                 99L,
                 new BigDecimal("300.00"),
+                true,
                 AuctionCloseReason.MANUAL,
                 OffsetDateTime.now()
         ));
 
         verify(notificationRepository, times(5)).save(any(NotificationEntity.class));
         verify(emailNotificationService, times(5)).deliver(any(NotificationEntity.class));
+    }
+
+    @Test
+    void handleAuctionClosedWithoutReserveMetCreatesSellerLoserAndWatcherNotifications() {
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(16L);
+        auction.setCreatedBy(1L);
+
+        when(auctionRepository.findById(16L)).thenReturn(Optional.of(auction));
+        when(bidRepository.findDistinctBidderIdsByAuctionId(16L)).thenReturn(List.of(2L));
+        when(auctionWatchlistRepository.findDistinctUserIdsByAuctionId(16L)).thenReturn(List.of(2L, 3L));
+
+        notificationService.handleAuctionClosed(new AuctionClosedEvent(
+                16L,
+                null,
+                null,
+                new BigDecimal("220.00"),
+                false,
+                AuctionCloseReason.EXPIRED,
+                OffsetDateTime.now()
+        ));
+
+        verify(notificationRepository, times(3)).save(any(NotificationEntity.class));
+        verify(emailNotificationService, times(3)).deliver(any(NotificationEntity.class));
     }
 }

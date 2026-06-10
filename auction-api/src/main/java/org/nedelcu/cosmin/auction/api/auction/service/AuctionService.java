@@ -125,6 +125,7 @@ public class AuctionService {
         auction.setWinnerId(null);
         auction.setWinningBidId(null);
         auction.setFinalPrice(null);
+        auction.setReserveMet(computeReserveMet(request.startPrice(), request.reservePrice()));
         auction.setClosedAt(null);
         auction.setClosedReason(null);
         auction.setCreatedAt(now);
@@ -159,6 +160,7 @@ public class AuctionService {
         auction.setWinnerId(null);
         auction.setWinningBidId(null);
         auction.setFinalPrice(null);
+        auction.setReserveMet(computeReserveMet(request.startPrice(), request.reservePrice()));
         auction.setClosedAt(null);
         auction.setClosedReason(null);
         auction.setCreatedAt(now);
@@ -466,6 +468,7 @@ public class AuctionService {
         bid.setCreatedAt(now);
 
         auction.setCurrentPrice(request.amount());
+        auction.setReserveMet(computeReserveMet(request.amount(), auction.getReservePrice()));
         boolean auctionExtended = shouldExtendAuction(auction, now);
         if (auctionExtended) {
             auction.setEndTime(auction.getEndTime().plusSeconds(auction.getAntiSnipingExtendSec()));
@@ -536,6 +539,8 @@ public class AuctionService {
                 auctionEntity.getStartPrice(),
                 auctionEntity.getCurrentPrice(),
                 auctionEntity.getMinIncrement(),
+                auctionEntity.getReservePrice(),
+                auctionEntity.getReserveMet(),
                 auctionEntity.getStatus(),
                 auctionEntity.getStartTime(),
                 auctionEntity.getEndTime(),
@@ -597,6 +602,7 @@ public class AuctionService {
         auction.setWinnerId(closeSummary.winnerId());
         auction.setWinningBidId(closeSummary.winningBidId());
         auction.setFinalPrice(closeSummary.finalPrice());
+        auction.setReserveMet(closeSummary.reserveMet());
         auction.setClosedAt(now);
         auction.setClosedReason(closeSummary.closedReason());
         auction.setUpdatedAt(now);
@@ -607,6 +613,7 @@ public class AuctionService {
                 savedAuction.getWinnerId(),
                 savedAuction.getWinningBidId(),
                 savedAuction.getFinalPrice(),
+                savedAuction.getReserveMet(),
                 savedAuction.getClosedReason(),
                 now
         );
@@ -623,13 +630,25 @@ public class AuctionService {
     private AuctionCloseSummary resolveCloseSummary(AuctionEntity auction, AuctionCloseReason closedReason) {
         BidEntity winningBid = bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auction.getId())
                 .orElse(null);
+        Boolean reserveMet = computeReserveMet(auction.getCurrentPrice(), auction.getReservePrice());
 
         if (winningBid == null) {
             return new AuctionCloseSummary(
                     null,
                     null,
                     auction.getCurrentPrice(),
-                    closedReason
+                    closedReason,
+                    reserveMet
+            );
+        }
+
+        if (Boolean.FALSE.equals(reserveMet)) {
+            return new AuctionCloseSummary(
+                    null,
+                    null,
+                    winningBid.getAmount(),
+                    closedReason,
+                    false
             );
         }
 
@@ -637,7 +656,8 @@ public class AuctionService {
                 winningBid.getBidderId(),
                 winningBid.getId(),
                 winningBid.getAmount(),
-                closedReason
+                closedReason,
+                reserveMet
         );
     }
 
@@ -698,6 +718,11 @@ public class AuctionService {
             throw new BusinessException("Unsupported subcategory for category " + request.categoryCode() + ": " + subcategoryCode);
         }
 
+        BigDecimal reservePrice = request.reservePrice();
+        if (reservePrice != null && reservePrice.compareTo(request.startPrice()) < 0) {
+            throw new BusinessException("Reserve price must be greater than or equal to the opening price");
+        }
+
         String itemCondition = trimToNull(request.itemCondition());
         if (itemCondition != null && !AuctionDomainRules.isValidCondition(itemCondition)) {
             throw new BusinessException("Unsupported item condition: " + itemCondition);
@@ -729,6 +754,8 @@ public class AuctionService {
         auction.setStartPrice(request.startPrice());
         auction.setCurrentPrice(request.startPrice());
         auction.setMinIncrement(request.minIncrement());
+        auction.setReservePrice(request.reservePrice());
+        auction.setReserveMet(computeReserveMet(request.startPrice(), request.reservePrice()));
         auction.setEndTime(request.endTime());
         auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);
         auction.setAntiSnipingExtendSec(request.antiSnipingExtendSec() != null ? request.antiSnipingExtendSec() : 30);
@@ -758,6 +785,14 @@ public class AuctionService {
 
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Boolean computeReserveMet(BigDecimal currentPrice, BigDecimal reservePrice) {
+        if (reservePrice == null) {
+            return null;
+        }
+
+        return currentPrice != null && currentPrice.compareTo(reservePrice) >= 0;
     }
 
     private Map<Long, List<AuctionImageResponse>> loadImagesByAuctionId(List<Long> auctionIds) {

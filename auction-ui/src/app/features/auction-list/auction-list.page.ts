@@ -210,6 +210,26 @@ export class AuctionListPageComponent implements OnInit {
     }
   }
 
+  reserveLabel(auction: Auction): string | null {
+    if (auction.reservePrice === null) {
+      return null;
+    }
+
+    if (auction.reserveMet === true) {
+      return 'Reserve met';
+    }
+
+    return auction.status === 'ENDED' ? 'Reserve not met' : 'Reserve pending';
+  }
+
+  reserveSeverity(auction: Auction): 'success' | 'warn' | 'secondary' | 'info' {
+    if (auction.reserveMet === true) {
+      return 'success';
+    }
+
+    return auction.status === 'ENDED' ? 'secondary' : 'warn';
+  }
+
   endTimeTone(auction: Auction): 'critical' | 'warning' | 'neutral' {
     if (!auction.endTime || auction.status !== 'RUNNING') {
       return 'neutral';

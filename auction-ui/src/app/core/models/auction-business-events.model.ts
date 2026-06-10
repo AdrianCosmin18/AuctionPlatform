@@ -20,6 +20,7 @@ export interface AuctionClosedEvent {
   winnerId: number | null;
   winningBidId: number | null;
   finalPrice: number;
+  reserveMet: boolean | null;
   closedReason: AuctionCloseReason;
   closedAt: string;
 }
