@@ -16,7 +16,7 @@ import { ToastModule } from 'primeng/toast';
 import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil, timer } from 'rxjs';
 import { AUTHENTICITY_STATUSES, ITEM_CONDITIONS, findCategoryByCode, findOptionLabel } from '../../core/constants/auction-taxonomy';
 import { environment } from '../../../environments/environment';
-import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
+import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, AuctionSuspendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionRealtimeEvent } from '../../core/models/auction-realtime-event.model';
 import { AuctionStatus } from '../../core/models/auction-status.type';
@@ -328,6 +328,8 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         return 'success';
       case 'DRAFT':
         return 'warn';
+      case 'SUSPENDED':
+        return 'danger';
       case 'ENDED':
         return 'secondary';
       case 'CANCELLED':
@@ -355,6 +357,10 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
             ? `Final price: ${payload.finalPrice} · Reserve not met`
             : `Final price: ${payload.finalPrice} · No winner`;
       }
+      case 'AUCTION_SUSPENDED': {
+        const payload = event.payload as AuctionSuspendedEvent;
+        return `Suspended by admin #${payload.suspendedBy} · ${payload.reason}`;
+      }
       default:
         return '';
     }
@@ -368,6 +374,8 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         return 'warn';
       case 'AUCTION_CLOSED':
         return 'secondary';
+      case 'AUCTION_SUSPENDED':
+        return 'danger';
       default:
         return 'info';
     }
@@ -390,6 +398,14 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       default:
         return '-';
     }
+  }
+
+  suspensionLabel(auction: Auction | null): string | null {
+    if (!auction?.suspensionReason) {
+      return null;
+    }
+
+    return `Suspended by admin #${auction.suspendedBy ?? '-'}: ${auction.suspensionReason}`;
   }
 
   reserveStatusLabel(auction: Auction | null): string | null {
@@ -542,6 +558,24 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         this.maybeShowRealtimeToast('AUCTION_CLOSED', 'info', 'Auction closed', 'The auction has been closed.');
         break;
       }
+      case 'AUCTION_SUSPENDED': {
+        const payload = event.payload as AuctionSuspendedEvent;
+        this.auction$.next({
+          ...auction,
+          status: 'SUSPENDED',
+          winnerId: null,
+          winningBidId: null,
+          finalPrice: null,
+          closedAt: null,
+          closedReason: null,
+          suspendedAt: payload.suspendedAt,
+          suspendedBy: payload.suspendedBy,
+          suspensionReason: payload.reason
+        });
+        this.setLiveMessage('The auction was suspended by an administrator.', 5000);
+        this.maybeShowRealtimeToast('AUCTION_SUSPENDED', 'warn', 'Auction suspended', 'The auction was suspended by an administrator.');
+        break;
+      }
     }
   }
 
@@ -685,7 +719,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   }
 
   private maybeShowRealtimeToast(
-    eventType: 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED',
+    eventType: 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED' | 'AUCTION_SUSPENDED',
     severity: 'success' | 'info' | 'warn' | 'error',
     summary: string,
     detail: string

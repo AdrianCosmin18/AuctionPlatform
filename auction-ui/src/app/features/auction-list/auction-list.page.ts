@@ -56,6 +56,7 @@ export class AuctionListPageComponent implements OnInit {
     { label: 'All', value: 'ALL' },
     { label: 'Live', value: 'RUNNING' },
     { label: 'Upcoming', value: 'DRAFT' },
+    { label: 'Blocked', value: 'SUSPENDED' },
     { label: 'Closed', value: 'ENDED' }
   ];
   statusFilter: 'ALL' | AuctionStatus = 'ALL';
@@ -186,6 +187,8 @@ export class AuctionListPageComponent implements OnInit {
         return 'success';
       case 'DRAFT':
         return 'warn';
+      case 'SUSPENDED':
+        return 'danger';
       case 'ENDED':
         return 'secondary';
       case 'CANCELLED':
@@ -201,6 +204,8 @@ export class AuctionListPageComponent implements OnInit {
         return 'Live';
       case 'DRAFT':
         return 'Upcoming';
+      case 'SUSPENDED':
+        return 'Blocked';
       case 'ENDED':
         return 'Closed';
       case 'CANCELLED':

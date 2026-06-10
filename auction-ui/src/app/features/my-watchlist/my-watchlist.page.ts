@@ -94,6 +94,8 @@ export class MyWatchlistPageComponent implements OnInit {
         return 'success';
       case 'DRAFT':
         return 'warn';
+      case 'SUSPENDED':
+        return 'danger';
       case 'ENDED':
         return 'secondary';
       case 'CANCELLED':

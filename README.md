@@ -74,7 +74,7 @@ Responsabilitati principale:
 - suporta `reserve price` optional si expune starea `reserve met / not met`
 - suporta `buy now price` optional si actiune de cumparare imediata din pagina de detalii
 - afiseaza dashboard operational cu KPI-uri si breakdown-uri pe categorii
-- afiseaza pagina `Fraud Signals` cu pattern-uri suspecte detectate read-only
+- afiseaza pagina `Fraud Signals` cu pattern-uri suspecte detectate si actiune administrativa de suspendare
 - afiseaza notificari in-app si unread badge
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
@@ -187,7 +187,7 @@ In `auction-ui`, zonele importante sunt:
 - `features/my-bids`: pagina dedicata pentru activitatea de bid a userului curent
 - `features/my-watchlist`: pagina dedicata pentru loturile urmarite
 - `features/dashboard`: dashboard operational pentru marketplace
-- `features/fraud-signals`: review operational pentru semnale suspecte
+- `features/fraud-signals`: review operational pentru semnale suspecte si suspendare administrativa
 - `app.routes.ts`: rutele UI
 
 ## Ce face aplicatia acum
@@ -206,10 +206,11 @@ Backend-ul suporta:
 - buy now price optional in create, edit, close summary si endpoint dedicat pentru cumparare imediata
 - endpoint analytics pentru dashboard operational agregat
 - endpoint fraud pentru semnale suspecte calculate on-demand
+- endpoint admin pentru suspendarea unei licitatii `RUNNING` cu motiv obligatoriu
 - listare notificari pentru userul curent
 - unread notifications count
 - `mark as read` si `mark all as read`
-- email notifications pentru `AUCTION_WON`, `OUTBID` si `AUCTION_CLOSED`
+- email notifications pentru `AUCTION_WON`, `OUTBID`, `AUCTION_CLOSED` si `AUCTION_SUSPENDED`
 - pornire licitatie
 - inchidere licitatie
 - inchidere automata a licitatiilor expirate
@@ -262,6 +263,8 @@ Frontend-ul suporta:
 - control operational pentru `My Auctions`: `Edit`, `Start`, `Close`
 - sumar pentru `My Bids`: latest bid, highest bid, total bids, leading/won state
 - close outcome corect pentru reserve price: lot vandut doar daca `reservePrice` este atins
+- suspendare administrativa pentru licitatii `RUNNING` prin `POST /api/admin/auctions/{id}/suspend`
+- afisare `SUSPENDED` si motivul blocarii in paginile relevante
 - unread badge in header pentru notificari
 - toast global in coltul ecranului pentru notificari noi de tip `AUCTION_WON`
 - `mark as read` si `mark all as read` pentru notificari
@@ -330,6 +333,7 @@ Tipuri suportate acum:
 - `AUCTION_WON`
 - `AUCTION_LOST`
 - `AUCTION_CLOSED`
+- `AUCTION_SUSPENDED`
 - `AUCTION_EXTENDED`
 - `NEW_BID_ON_OWN_AUCTION`
 
@@ -338,6 +342,7 @@ Tipurile care trimit email in MVP sunt:
 - `AUCTION_WON`
 - `OUTBID`
 - `AUCTION_CLOSED`
+- `AUCTION_SUSPENDED`
 
 Fluxul actual este:
 
@@ -436,7 +441,7 @@ Tabele principale:
 
 Retine starea curenta a licitatiei:
 
-- `status`: `DRAFT`, `RUNNING`, `ENDED`
+- `status`: `DRAFT`, `RUNNING`, `ENDED`, `SUSPENDED`
 - `current_price`
 - `end_time`
 - `winner_id`
@@ -444,6 +449,9 @@ Retine starea curenta a licitatiei:
 - `final_price`
 - `closed_at`
 - `closed_reason`
+- `suspended_at`
+- `suspended_by`
+- `suspension_reason`
 - `reserve_price`
 - `reserve_met`
 - `anti_sniping_window_sec`
@@ -792,6 +800,30 @@ In frontend:
 - dupa `AUCTION_CLOSED`, statusul devine `ENDED`
 - UI-ul actualizeaza live si sumarul de inchidere
 
+### 5b. Administrative suspension
+
+Clientul sau UI-ul apeleaza:
+
+- `POST /api/admin/auctions/{id}/suspend`
+
+Aplicatia:
+
+- incarca licitatia cu `PESSIMISTIC_WRITE`
+- verifica sa fie `RUNNING`
+- valideaza `reason` ca text obligatoriu
+- seteaza `status = SUSPENDED`
+- curata `winnerId`, `winningBidId`, `finalPrice`, `closedAt` si `closedReason`
+- seteaza `suspendedAt`, `suspendedBy` si `suspensionReason`
+- salveaza evenimentul `AUCTION_SUSPENDED` in `outbox_events`
+- trimite `AUCTION_SUSPENDED` pe WebSocket
+
+In frontend:
+
+- pagina `Fraud Signals` poate suspenda direct o licitatie asociata unui semnal
+- adminul trebuie sa introduca un motiv in dialogul PrimeNG
+- pagina de detalii, listele relevante si notificarile afiseaza statusul `SUSPENDED` si motivul
+- o licitatie suspendata nu mai permite `bid`, `buy now`, `close` sau `start`
+
 ## Reguli de business
 
 ### Reguli de stare
@@ -800,7 +832,9 @@ In frontend:
 - doar o licitatie `DRAFT` poate fi pornita
 - doar o licitatie `RUNNING` accepta bids
 - doar o licitatie `RUNNING` poate fi inchisa
+- doar o licitatie `RUNNING` poate fi suspendata administrativ
 - o licitatie expirata este inchisa automat de scheduler
+- o licitatie `SUSPENDED` este terminala pentru MVP
 
 ### Reguli de timp
 
@@ -834,6 +868,7 @@ Formula anti-sniping:
 - fiecare eveniment de business este scris in outbox in aceeasi tranzactie
 - publicarea in RabbitMQ este asincrona
 - worker-ul auditeaza doar evenimentele consumate cu succes
+- `AUCTION_SUSPENDED` foloseste acelasi flux outbox -> RabbitMQ -> worker -> notificari/email
 
 ## Locking si concurenta
 
@@ -852,7 +887,7 @@ Acesta ofera protectie suplimentara la update-uri concurente si ramane parte din
 
 ### Pessimistic locking
 
-Se aplica la inchiderea licitatiei si la plasarea bid-urilor prin:
+Se aplica la inchiderea licitatiei, la suspendarea administrativa si la plasarea bid-urilor prin:
 
 - `findByIdForUpdate(...)`
 - `@Lock(LockModeType.PESSIMISTIC_WRITE)`

@@ -65,6 +65,10 @@
                 <p class="auction-card__description">{{ auction.description }}</p>
               }
 
+              @if (auction.status === 'SUSPENDED' && auction.suspensionReason) {
+                <p class="auction-card__description text-danger mb-0">Suspended: {{ auction.suspensionReason }}</p>
+              }
+
               <div class="auction-card__meta">
                 <div>
                   <span class="meta-label">Current price</span>

@@ -38,6 +38,7 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 
 @ExtendWith(MockitoExtension.class)
@@ -602,6 +603,37 @@ class AuctionServiceTest {
         assertThat(closedEvent.finalPrice()).isEqualByComparingTo("500.00");
         assertThat(closedEvent.closedReason()).isEqualTo(AuctionCloseReason.BUY_NOW);
         assertThat(closedEvent.reserveMet()).isTrue();
+    }
+
+    @Test
+    void suspendMarksRunningAuctionAsSuspendedAndPublishesDedicatedEvent() {
+        Long auctionId = 91L;
+        Long adminId = 99L;
+        AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusMinutes(5), 30, 30);
+        auction.setCreatedBy(1L);
+        auction.setCurrentPrice(new BigDecimal("220.00"));
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuctionResponse response = auctionService.suspend(auctionId, "Suspicious bidding pattern detected.", adminId);
+
+        assertThat(response.status()).isEqualTo(AuctionStatus.SUSPENDED);
+        assertThat(response.winnerId()).isNull();
+        assertThat(response.finalPrice()).isNull();
+        assertThat(response.suspendedBy()).isEqualTo(adminId);
+        assertThat(response.suspensionReason()).isEqualTo("Suspicious bidding pattern detected.");
+
+        verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
+        assertThat(outboxPayloadCaptor.getValue()).isInstanceOf(AuctionSuspendedEvent.class);
+        AuctionSuspendedEvent suspendedEvent = (AuctionSuspendedEvent) outboxPayloadCaptor.getValue();
+        assertThat(suspendedEvent.suspendedBy()).isEqualTo(adminId);
+        assertThat(suspendedEvent.reason()).isEqualTo("Suspicious bidding pattern detected.");
+
+        verify(auctionEventBroadcaster).broadcastToAuction(any(), realtimePayloadCaptor.capture());
+        AuctionRealtimeEvent<?> realtimeEvent = (AuctionRealtimeEvent<?>) realtimePayloadCaptor.getValue();
+        assertThat(realtimeEvent.type()).isEqualTo(AuctionEventType.AUCTION_SUSPENDED.name());
+        assertThat(realtimeEvent.payload()).isInstanceOf(AuctionSuspendedEvent.class);
     }
 
     @Test

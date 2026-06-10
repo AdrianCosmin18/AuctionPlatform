@@ -51,6 +51,9 @@
               <p-tag [value]="featuredReserveLabel" [severity]="reserveSeverity(featuredAuction)" />
             }
           </div>
+          @if (featuredAuction.status === 'SUSPENDED' && featuredAuction.suspensionReason) {
+            <p-message severity="error" [text]="'Suspended: ' + featuredAuction.suspensionReason" />
+          }
           <div class="hero-featured-card__price">
             <span>Current bid</span>
             <strong>{{ featuredAuction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
@@ -175,6 +178,10 @@
 
                 @if (auction.description) {
                   <p class="auction-card__description">{{ auction.description }}</p>
+                }
+
+                @if (auction.status === 'SUSPENDED' && auction.suspensionReason) {
+                  <p class="auction-card__description text-danger mb-0">Suspended: {{ auction.suspensionReason }}</p>
                 }
 
                 <div class="auction-card__metadata">

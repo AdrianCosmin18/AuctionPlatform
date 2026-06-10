@@ -25,4 +25,11 @@ export interface AuctionClosedEvent {
   closedAt: string;
 }
 
-export type AuctionBusinessEvent = BidPlacedEvent | AuctionExtendedEvent | AuctionClosedEvent;
+export interface AuctionSuspendedEvent {
+  auctionId: number;
+  suspendedBy: number;
+  reason: string;
+  suspendedAt: string;
+}
+
+export type AuctionBusinessEvent = BidPlacedEvent | AuctionExtendedEvent | AuctionClosedEvent | AuctionSuspendedEvent;

@@ -1,1 +1,1 @@
-export type AuctionStatus = 'DRAFT' | 'RUNNING' | 'ENDED' | 'CANCELLED';
+export type AuctionStatus = 'DRAFT' | 'RUNNING' | 'SUSPENDED' | 'ENDED' | 'CANCELLED';

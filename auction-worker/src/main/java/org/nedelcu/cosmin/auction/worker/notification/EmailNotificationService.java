@@ -21,7 +21,8 @@ public class EmailNotificationService {
     private static final Set<NotificationType> EMAIL_ELIGIBLE_TYPES = EnumSet.of(
             NotificationType.AUCTION_WON,
             NotificationType.OUTBID,
-            NotificationType.AUCTION_CLOSED
+            NotificationType.AUCTION_CLOSED,
+            NotificationType.AUCTION_SUSPENDED
     );
 
     private final JavaMailSender mailSender;

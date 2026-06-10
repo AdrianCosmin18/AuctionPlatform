@@ -9,6 +9,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.nedelcu.cosmin.auction.shared.notification.NotificationType;
 import org.nedelcu.cosmin.auction.worker.auction.AuctionEntity;
@@ -135,6 +136,21 @@ public class NotificationService {
                     reserveNotMet
                             ? "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + " without meeting the reserve price."
                             : "Auction #" + payload.auctionId() + " closed at " + formatAmount(payload.finalPrice()) + "."
+            );
+        }
+    }
+
+    @Transactional
+    public void handleAuctionSuspended(AuctionSuspendedEvent payload) {
+        Set<Long> recipients = recipientsForAuction(payload.auctionId());
+
+        for (Long userId : recipients) {
+            saveNotification(
+                    userId,
+                    payload.auctionId(),
+                    NotificationType.AUCTION_SUSPENDED,
+                    "Auction suspended by admin",
+                    "Auction #" + payload.auctionId() + " was suspended by an administrator. Reason: " + payload.reason()
             );
         }
     }

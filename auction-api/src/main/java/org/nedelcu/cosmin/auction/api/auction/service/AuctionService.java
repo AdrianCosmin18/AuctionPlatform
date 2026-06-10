@@ -36,6 +36,7 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -128,6 +129,9 @@ public class AuctionService {
         auction.setReserveMet(computeReserveMet(request.startPrice(), request.reservePrice()));
         auction.setClosedAt(null);
         auction.setClosedReason(null);
+        auction.setSuspendedAt(null);
+        auction.setSuspendedBy(null);
+        auction.setSuspensionReason(null);
         auction.setCreatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
@@ -163,6 +167,9 @@ public class AuctionService {
         auction.setReserveMet(computeReserveMet(request.startPrice(), request.reservePrice()));
         auction.setClosedAt(null);
         auction.setClosedReason(null);
+        auction.setSuspendedAt(null);
+        auction.setSuspendedBy(null);
+        auction.setSuspensionReason(null);
         auction.setCreatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
@@ -321,6 +328,49 @@ public class AuctionService {
         );
 
         return closeAuction(auction, now, closeSummary, currentUserId);
+    }
+
+    @Transactional
+    public AuctionResponse suspend(Long id, String reason, Long currentUserId) {
+        AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
+
+        if (auction.getStatus() != AuctionStatus.RUNNING) {
+            throw new BusinessException("Only RUNNING auctions can be suspended");
+        }
+
+        String normalizedReason = trimToNull(reason);
+        if (normalizedReason == null) {
+            throw new BusinessException("Suspension reason is required");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        auction.setStatus(AuctionStatus.SUSPENDED);
+        auction.setWinnerId(null);
+        auction.setWinningBidId(null);
+        auction.setFinalPrice(null);
+        auction.setClosedAt(null);
+        auction.setClosedReason(null);
+        auction.setSuspendedAt(now);
+        auction.setSuspendedBy(currentUserId);
+        auction.setSuspensionReason(normalizedReason);
+        auction.setUpdatedAt(now);
+
+        AuctionEntity savedAuction = auctionRepository.save(auction);
+        AuctionSuspendedEvent auctionSuspendedEvent = new AuctionSuspendedEvent(
+                savedAuction.getId(),
+                currentUserId,
+                normalizedReason,
+                now
+        );
+
+        publishAuctionEvent(savedAuction.getId(), AuctionEventType.AUCTION_SUSPENDED, auctionSuspendedEvent, now);
+        return toResponse(
+                savedAuction,
+                loadImages(savedAuction.getId()),
+                watcherCountForAuction(savedAuction.getId()),
+                currentUserId != null && auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, savedAuction.getId())
+        );
     }
 
     @Transactional
@@ -593,6 +643,9 @@ public class AuctionService {
                 auctionEntity.getFinalPrice(),
                 auctionEntity.getClosedAt(),
                 auctionEntity.getClosedReason(),
+                auctionEntity.getSuspendedAt(),
+                auctionEntity.getSuspendedBy(),
+                auctionEntity.getSuspensionReason(),
                 images,
                 watchersCount,
                 watchedByCurrentUser,
@@ -654,6 +707,9 @@ public class AuctionService {
         auction.setReserveMet(closeSummary.reserveMet());
         auction.setClosedAt(now);
         auction.setClosedReason(closeSummary.closedReason());
+        auction.setSuspendedAt(null);
+        auction.setSuspendedBy(null);
+        auction.setSuspensionReason(null);
         auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);

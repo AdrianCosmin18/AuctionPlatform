@@ -1,1 +1,1 @@
-export type AuctionEventType = 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED';
+export type AuctionEventType = 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED' | 'AUCTION_SUSPENDED';

@@ -104,6 +104,8 @@ export class NotificationsPageComponent implements OnInit {
         return 'success';
       case 'OUTBID':
         return 'danger';
+      case 'AUCTION_SUSPENDED':
+        return 'danger';
       case 'AUCTION_EXTENDED':
         return 'warn';
       case 'NEW_BID_ON_OWN_AUCTION':

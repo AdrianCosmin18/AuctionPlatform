@@ -65,6 +65,10 @@
                 <p class="bid-card__description">{{ bid.auction.description }}</p>
               }
 
+              @if (bid.auction.status === 'SUSPENDED' && bid.auction.suspensionReason) {
+                <p-message severity="error" [text]="'Suspended by admin: ' + bid.auction.suspensionReason" styleClass="w-100 mb-3" />
+              }
+
               <div class="bid-card__meta">
                 <div>
                   <span class="meta-label">Current price</span>

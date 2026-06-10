@@ -1,4 +1,5 @@
 <section class="page-section fraud-shell">
+  <p-toast key="fraud-signals" />
   <section class="fraud-hero">
     <div>
       <a routerLink="/auctions" class="back-link">
@@ -52,6 +53,7 @@
               <th>Activity</th>
               <th>Window</th>
               <th>Last seen</th>
+              <th>Actions</th>
             </tr>
           </ng-template>
           <ng-template pTemplate="body" let-signal>
@@ -91,6 +93,19 @@
                 }
               </td>
               <td>{{ signal.lastSeenAt | date: 'MMM d, y, h:mm a' }}</td>
+              <td>
+                @if (canSuspend(signal)) {
+                  <p-button
+                    icon="pi pi-ban"
+                    label="Suspend auction"
+                    severity="danger"
+                    [outlined]="true"
+                    (onClick)="openSuspendDialog(signal)"
+                  />
+                } @else {
+                  <span class="text-body-secondary">No direct action</span>
+                }
+              </td>
             </tr>
           </ng-template>
         </p-table>
@@ -103,4 +118,38 @@
       }
     </p-card>
   }
+
+  <p-dialog
+    header="Suspend auction"
+    [(visible)]="suspendDialogVisible"
+    [modal]="true"
+    [closable]="!suspendLoading"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '34rem', maxWidth: '95vw' }"
+    (onHide)="closeSuspendDialog()">
+    @if (selectedSignal?.auctionId) {
+      <div class="suspend-dialog">
+        <p class="mb-3">
+          You are about to suspend <strong>auction #{{ selectedSignal?.auctionId }}</strong>.
+          All relevant participants will receive the reason below.
+        </p>
+        <label class="form-label" for="suspensionReason">Suspension reason</label>
+        <textarea
+          pInputTextarea
+          id="suspensionReason"
+          rows="5"
+          class="w-100"
+          [(ngModel)]="suspendReason"
+          placeholder="Explain why the auction is being suspended."
+        ></textarea>
+      </div>
+    }
+    <ng-template pTemplate="footer">
+      <div class="d-flex justify-content-end gap-2">
+        <p-button label="Cancel" severity="secondary" [outlined]="true" [disabled]="suspendLoading" (onClick)="closeSuspendDialog()" />
+        <p-button label="Suspend auction" severity="danger" [loading]="suspendLoading" (onClick)="suspendSelectedAuction()" />
+      </div>
+    </ng-template>
+  </p-dialog>
 </section>

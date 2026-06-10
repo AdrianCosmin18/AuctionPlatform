@@ -107,6 +107,15 @@ public class AuctionEntity {
     @Column(name = "closed_reason")
     private AuctionCloseReason closedReason;
 
+    @Column(name = "suspended_at")
+    private OffsetDateTime suspendedAt;
+
+    @Column(name = "suspended_by")
+    private Long suspendedBy;
+
+    @Column(name = "suspension_reason")
+    private String suspensionReason;
+
     @Version
     private Long version;
 

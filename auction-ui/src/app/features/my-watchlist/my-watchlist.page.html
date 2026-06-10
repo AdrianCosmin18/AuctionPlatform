@@ -59,6 +59,10 @@
                 <p class="watchlist-card__description">{{ auction.description }}</p>
               }
 
+              @if (auction.status === 'SUSPENDED' && auction.suspensionReason) {
+                <p class="watchlist-card__description text-danger mb-0">Suspended: {{ auction.suspensionReason }}</p>
+              }
+
               <div class="watchlist-card__meta">
                 <div>
                   <span class="meta-label">Current bid</span>

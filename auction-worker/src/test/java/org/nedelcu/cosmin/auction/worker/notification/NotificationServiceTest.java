@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
+import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.nedelcu.cosmin.auction.worker.auction.AuctionEntity;
 import org.nedelcu.cosmin.auction.worker.auction.AuctionRepository;
@@ -117,5 +118,26 @@ class NotificationServiceTest {
 
         verify(notificationRepository, times(3)).save(any(NotificationEntity.class));
         verify(emailNotificationService, times(3)).deliver(any(NotificationEntity.class));
+    }
+
+    @Test
+    void handleAuctionSuspendedCreatesNotificationsForSellerBiddersAndWatchers() {
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(17L);
+        auction.setCreatedBy(1L);
+
+        when(auctionRepository.findById(17L)).thenReturn(Optional.of(auction));
+        when(bidRepository.findDistinctBidderIdsByAuctionId(17L)).thenReturn(List.of(2L, 3L));
+        when(auctionWatchlistRepository.findDistinctUserIdsByAuctionId(17L)).thenReturn(List.of(3L, 4L));
+
+        notificationService.handleAuctionSuspended(new AuctionSuspendedEvent(
+                17L,
+                99L,
+                "Suspicious shill bidding pattern under review.",
+                OffsetDateTime.now()
+        ));
+
+        verify(notificationRepository, times(4)).save(any(NotificationEntity.class));
+        verify(emailNotificationService, times(4)).deliver(any(NotificationEntity.class));
     }
 }

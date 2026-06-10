@@ -7,6 +7,7 @@ import { Bid } from '../models/bid.model';
 import { CreateAuctionRequest } from '../models/create-auction-request.model';
 import { MyBidAuction } from '../models/my-bid-auction.model';
 import { PlaceBidRequest } from '../models/place-bid-request.model';
+import { SuspendAuctionRequest } from '../models/suspend-auction-request.model';
 
 @Injectable({
   providedIn: 'root'
@@ -73,6 +74,10 @@ export class AuctionApiService {
 
   buyNowAuction(id: number): Observable<Auction> {
     return this.http.post<Auction>(`${this.baseUrl}/${id}/buy-now`, {}, this.userAwareOptions);
+  }
+
+  suspendAuction(id: number, request: SuspendAuctionRequest): Observable<Auction> {
+    return this.http.post<Auction>(`${environment.apiBaseUrl}/admin/auctions/${id}/suspend`, request, this.userAwareOptions);
   }
 
   watchAuction(id: number): Observable<Auction> {

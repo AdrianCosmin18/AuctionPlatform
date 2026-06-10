@@ -31,6 +31,9 @@ export interface Auction {
   finalPrice: number | null;
   closedAt: string | null;
   closedReason: AuctionCloseReason | null;
+  suspendedAt: string | null;
+  suspendedBy: number | null;
+  suspensionReason: string | null;
   images: AuctionImage[];
   watchersCount: number;
   watchedByCurrentUser: boolean;

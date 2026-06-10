@@ -15,6 +15,7 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventEnvelope;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.nedelcu.cosmin.auction.worker.audit.AuditService;
 import org.nedelcu.cosmin.auction.worker.notification.NotificationService;
@@ -101,5 +102,30 @@ class AuctionEventConsumerTest {
                 objectMapper.writeValueAsString(payload)
         );
         verify(notificationService).handleAuctionClosed(payload);
+    }
+
+    @Test
+    void consumeSavesAuctionSuspendedEventToAudit() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        AuctionEventConsumer auctionEventConsumer = new AuctionEventConsumer(auditService, notificationService, objectMapper);
+        OffsetDateTime suspendedAt = OffsetDateTime.now(ZoneOffset.UTC);
+        AuctionSuspendedEvent payload = new AuctionSuspendedEvent(
+                13L,
+                77L,
+                "Suspicious bidding pattern detected.",
+                suspendedAt
+        );
+
+        auctionEventConsumer.consume(new AuctionEventEnvelope(
+                AuctionEventType.AUCTION_SUSPENDED.name(),
+                objectMapper.writeValueAsString(payload)
+        ));
+
+        verify(auditService).save(
+                AuctionEventType.AUCTION_SUSPENDED.name(),
+                13L,
+                objectMapper.writeValueAsString(payload)
+        );
+        verify(notificationService).handleAuctionSuspended(payload);
     }
 }

@@ -203,6 +203,14 @@
                 <span class="meta-label">Close reason</span>
                 <div class="meta-value">{{ closeReasonLabel(vm.auction.closedReason) }}</div>
               </div>
+              <div>
+                <span class="meta-label">Suspended at</span>
+                <div class="meta-value">{{ vm.auction.suspendedAt ? (vm.auction.suspendedAt | date: 'medium') : '-' }}</div>
+              </div>
+              <div>
+                <span class="meta-label">Suspended by</span>
+                <div class="meta-value">{{ vm.auction.suspendedBy ? ('#' + vm.auction.suspendedBy) : '-' }}</div>
+              </div>
             </div>
 
             @if (vm.auction.description) {
@@ -229,6 +237,14 @@
                     ? 'Auction ended. Winner: #' + vm.auction.winnerId + '.'
                     : 'Auction ended without a winning bid.'
                 "
+              />
+            }
+
+            @if (vm.auction.status === 'SUSPENDED') {
+              <p-divider />
+              <p-message
+                severity="error"
+                [text]="suspensionLabel(vm.auction) ?? 'This auction was suspended by an administrator.'"
               />
             }
 

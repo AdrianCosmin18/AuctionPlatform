@@ -9,6 +9,7 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventEnvelope;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -47,6 +48,13 @@ public class AuctionEventConsumer {
                 notificationService.handleAuctionClosed(payload);
                 log.info("Processing auction closed: auctionId={}, finalPrice={}",
                         payload.auctionId(), payload.finalPrice());
+            }
+            case AUCTION_SUSPENDED -> {
+                AuctionSuspendedEvent payload = objectMapper.readValue(event.payload(), AuctionSuspendedEvent.class);
+                auditService.save(event.eventType(), payload.auctionId(), event.payload());
+                notificationService.handleAuctionSuspended(payload);
+                log.info("Processing auction suspended: auctionId={}, suspendedBy={}",
+                        payload.auctionId(), payload.suspendedBy());
             }
         }
     }

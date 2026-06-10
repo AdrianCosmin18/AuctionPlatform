@@ -82,6 +82,8 @@ export class MyBidsPageComponent implements OnInit {
         return 'success';
       case 'DRAFT':
         return 'warn';
+      case 'SUSPENDED':
+        return 'danger';
       case 'ENDED':
         return 'secondary';
       case 'CANCELLED':
@@ -94,6 +96,10 @@ export class MyBidsPageComponent implements OnInit {
   bidStateSeverity(bid: MyBidAuction): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
     if (bid.auction.reservePrice !== null && bid.auction.status === 'ENDED' && bid.auction.reserveMet === false) {
       return 'secondary';
+    }
+
+    if (bid.auction.status === 'SUSPENDED') {
+      return 'danger';
     }
 
     if (bid.won) {
@@ -114,6 +120,10 @@ export class MyBidsPageComponent implements OnInit {
   bidStateLabel(bid: MyBidAuction): string {
     if (bid.auction.reservePrice !== null && bid.auction.status === 'ENDED' && bid.auction.reserveMet === false) {
       return 'Reserve not met';
+    }
+
+    if (bid.auction.status === 'SUSPENDED') {
+      return 'Suspended by admin';
     }
 
     if (bid.won) {
