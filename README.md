@@ -20,6 +20,7 @@ Regula de lucru este:
 - `auction-shared`: contracte comune pentru evenimente.
 - `auction-worker`: consumator RabbitMQ pentru audit si procesari asincrone.
 - `auction-ui`: frontend Angular pentru listare, creare, administrare si monitorizare live a licitatiilor.
+  Include acum si dashboard operational.
 
 ## Rolul fiecarui modul
 
@@ -72,6 +73,7 @@ Responsabilitati principale:
 - ofera zona `My Area` cu pagini separate pentru `My Auctions`, `My Bids` si `My Watchlist`
 - suporta `reserve price` optional si expune starea `reserve met / not met`
 - suporta `buy now price` optional si actiune de cumparare imediata din pagina de detalii
+- afiseaza dashboard operational cu KPI-uri si breakdown-uri pe categorii
 - afiseaza notificari in-app si unread badge
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
@@ -183,6 +185,7 @@ In `auction-ui`, zonele importante sunt:
 - `features/my-auctions`: pagina dedicata pentru loturile create de userul curent
 - `features/my-bids`: pagina dedicata pentru activitatea de bid a userului curent
 - `features/my-watchlist`: pagina dedicata pentru loturile urmarite
+- `features/dashboard`: dashboard operational pentru marketplace
 - `app.routes.ts`: rutele UI
 
 ## Ce face aplicatia acum
@@ -199,6 +202,7 @@ Backend-ul suporta:
 - listare `My Watchlist`
 - reserve price optional in create, edit, close summary si evenimente
 - buy now price optional in create, edit, close summary si endpoint dedicat pentru cumparare imediata
+- endpoint analytics pentru dashboard operational agregat
 - listare notificari pentru userul curent
 - unread notifications count
 - `mark as read` si `mark all as read`
@@ -231,6 +235,7 @@ Frontend-ul suporta:
 - pagina dedicata `My Auctions` la `/my-auctions`
 - pagina dedicata `My Bids` la `/my-bids`
 - pagina dedicata `My Watchlist` la `/my-watchlist`
+- pagina dedicata `Dashboard` la `/dashboard`
 - pagina dedicata `Notifications` la `/notifications`
 - afisare `Reserve met`, `Reserve pending` sau `Reserve not met` in paginile relevante
 - afisare `Buy Now` in detalii si in listele relevante atunci cand lotul are `buyNowPrice`
@@ -997,6 +1002,7 @@ Tipurile care trimit email in MVP sunt:
 - `GET /api/auctions/me/created`
 - `GET /api/auctions/me/bids`
 - `POST /api/auctions` si `PUT /api/auctions/{id}` accepta si `reservePrice`, `buyNowPrice`
+- `GET /api/analytics/dashboard`
 - `GET /api/me/notifications`
 - `GET /api/me/notifications/unread-count`
 - `POST /api/me/notifications/{id}/read`
@@ -1010,6 +1016,7 @@ Tipurile care trimit email in MVP sunt:
 ## Rute frontend actuale
 
 - `GET /auctions`
+- `GET /dashboard`
 - `GET /auctions/new`
 - `GET /my-watchlist`
 - `GET /my-auctions`
@@ -1192,4 +1199,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. Analytics / Dashboard
+1. Fraud / Suspicious Activity Detection

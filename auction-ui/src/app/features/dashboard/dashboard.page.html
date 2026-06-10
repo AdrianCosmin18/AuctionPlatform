@@ -1,0 +1,115 @@
+<section class="page-section dashboard-shell">
+  <section class="dashboard-hero">
+    <div>
+      <div class="section-kicker">Operational analytics</div>
+      <h1 class="page-title mb-2">Marketplace dashboard</h1>
+      <p class="page-subtitle mb-0">
+        A compact view over sell-through, bidding demand, and watchlist attention across the catalog.
+      </p>
+    </div>
+    <div class="dashboard-hero__actions">
+      <a pButton routerLink="/auctions" icon="pi pi-home" label="Back to marketplace" severity="secondary" [outlined]="true"></a>
+      <p-button icon="pi pi-refresh" label="Refresh" severity="contrast" (onClick)="loadDashboard()" />
+    </div>
+  </section>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  @if (loading && !dashboard) {
+    <div class="loading-state">
+      <p-progressSpinner strokeWidth="4" />
+    </div>
+  } @else if (dashboard) {
+    <section class="dashboard-overview">
+      @for (metric of metricCards; track metric.key) {
+        <article class="metric-card" [class]="'metric-card--' + metric.accent">
+          <div class="metric-card__header">
+            <span class="metric-card__label">{{ metric.label }}</span>
+            <i [class]="metric.icon"></i>
+          </div>
+          <strong class="metric-card__value">{{ metricValue(metric.key) }}</strong>
+          <span class="metric-card__hint">
+            @switch (metric.key) {
+              @case ('activeAuctions') {
+                {{ dashboard.totalAuctions }} total auctions tracked
+              }
+              @case ('closeRatePercent') {
+                {{ dashboard.successfulClosures }} successful closures from {{ dashboard.endedAuctions }} ended auctions
+              }
+              @case ('averageFinalPrice') {
+                Average across sold lots only
+              }
+              @case ('totalWatchlistEntries') {
+                Total follows across all lots
+              }
+            }
+          </span>
+        </article>
+      }
+    </section>
+
+    <section class="dashboard-breakdowns">
+      <p-card styleClass="dashboard-panel">
+        <ng-template pTemplate="header">
+          <div class="dashboard-panel__header">
+            <div>
+              <h2 class="dashboard-panel__title">Bids per category</h2>
+              <p class="dashboard-panel__subtitle">{{ categoryCoverageText(dashboard.bidsPerCategory) }}</p>
+            </div>
+            <p-tag value="Demand signal" severity="success" />
+          </div>
+        </ng-template>
+
+        @if (hasMetrics(dashboard.bidsPerCategory)) {
+          <div class="metric-bars">
+            @for (metric of dashboard.bidsPerCategory; track metric.categoryCode) {
+              <article class="metric-bar">
+                <div class="metric-bar__summary">
+                  <span>{{ categoryLabel(metric.categoryCode) }}</span>
+                  <strong>{{ metric.count }}</strong>
+                </div>
+                <div class="metric-bar__track">
+                  <div class="metric-bar__fill metric-bar__fill--bids" [style.width.%]="barWidth(metric, dashboard.bidsPerCategory)"></div>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <p-message severity="info" text="No bids have been recorded yet, so this breakdown is still empty." />
+        }
+      </p-card>
+
+      <p-card styleClass="dashboard-panel">
+        <ng-template pTemplate="header">
+          <div class="dashboard-panel__header">
+            <div>
+              <h2 class="dashboard-panel__title">Watchlist activity by category</h2>
+              <p class="dashboard-panel__subtitle">{{ categoryCoverageText(dashboard.watchlistByCategory) }}</p>
+            </div>
+            <p-tag value="Interest signal" severity="warn" />
+          </div>
+        </ng-template>
+
+        @if (hasMetrics(dashboard.watchlistByCategory)) {
+          <div class="metric-bars">
+            @for (metric of dashboard.watchlistByCategory; track metric.categoryCode) {
+              <article class="metric-bar">
+                <div class="metric-bar__summary">
+                  <span>{{ categoryLabel(metric.categoryCode) }}</span>
+                  <strong>{{ metric.count }}</strong>
+                </div>
+                <div class="metric-bar__track">
+                  <div class="metric-bar__fill metric-bar__fill--watchlist" [style.width.%]="barWidth(metric, dashboard.watchlistByCategory)"></div>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <p-message severity="info" text="No watchlist entries have been recorded yet, so this breakdown is still empty." />
+        }
+      </p-card>
+    </section>
+  }
+</section>

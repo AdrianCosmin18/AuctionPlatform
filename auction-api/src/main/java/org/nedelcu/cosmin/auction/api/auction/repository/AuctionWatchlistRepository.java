@@ -9,6 +9,12 @@ import org.springframework.data.repository.query.Param;
 
 public interface AuctionWatchlistRepository extends JpaRepository<AuctionWatchlistEntity, Long> {
 
+    interface CategoryMetricView {
+        String getCategoryCode();
+
+        long getMetricCount();
+    }
+
     boolean existsByUserIdAndAuctionId(Long userId, Long auctionId);
 
     Optional<AuctionWatchlistEntity> findByUserIdAndAuctionId(Long userId, Long auctionId);
@@ -29,6 +35,15 @@ public interface AuctionWatchlistRepository extends JpaRepository<AuctionWatchli
             where w.userId = :userId and w.auctionId in :auctionIds
             """)
     List<Long> findWatchedAuctionIdsByUserIdAndAuctionIds(@Param("userId") Long userId, @Param("auctionIds") List<Long> auctionIds);
+
+    @Query("""
+            select a.categoryCode as categoryCode, count(w.id) as metricCount
+            from AuctionWatchlistEntity w
+            join AuctionEntity a on a.id = w.auctionId
+            group by a.categoryCode
+            order by count(w.id) desc, a.categoryCode asc
+            """)
+    List<CategoryMetricView> countWatchlistEntriesByCategory();
 
     interface AuctionWatchlistCountView {
         Long getAuctionId();

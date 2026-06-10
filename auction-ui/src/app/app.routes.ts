@@ -18,6 +18,11 @@ export const routes: Routes = [
       import('./features/auction-create/auction-create.page').then((m) => m.AuctionCreatePageComponent)
   },
   {
+    path: 'dashboard',
+    loadComponent: () =>
+      import('./features/dashboard/dashboard.page').then((m) => m.DashboardPageComponent)
+  },
+  {
     path: 'my-auctions',
     loadComponent: () =>
       import('./features/my-auctions/my-auctions.page').then((m) => m.MyAuctionsPageComponent)
