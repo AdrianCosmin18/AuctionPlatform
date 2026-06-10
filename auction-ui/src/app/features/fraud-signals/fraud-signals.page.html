@@ -1,0 +1,106 @@
+<section class="page-section fraud-shell">
+  <section class="fraud-hero">
+    <div>
+      <a routerLink="/auctions" class="back-link">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to marketplace</span>
+      </a>
+      <div class="section-kicker">Risk review</div>
+      <h1 class="page-title mb-1">Fraud signals</h1>
+      <p class="page-subtitle mb-0">
+        Read-only operational flags for burst bidding and unusually concentrated bidder-seller activity.
+      </p>
+    </div>
+    <p-button icon="pi pi-refresh" label="Refresh" severity="contrast" (onClick)="loadSignals()" />
+  </section>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  @if (loading && !overview) {
+    <div class="loading-state">
+      <p-progressSpinner strokeWidth="4" />
+    </div>
+  } @else if (overview) {
+    <section class="risk-overview">
+      @for (card of riskCards(); track card.label) {
+        <article class="risk-card" [class]="cardClass(card.severity)">
+          <span class="risk-card__label">{{ card.label }}</span>
+          <strong class="risk-card__value">{{ card.value }}</strong>
+          <span class="risk-card__hint">{{ card.hint }}</span>
+        </article>
+      }
+    </section>
+
+    <p-card styleClass="surface-card">
+      <div class="table-toolbar">
+        <div>
+          <strong>{{ overview.totalSignals }}</strong>
+          <span> signals detected</span>
+        </div>
+        <p-tag value="Read-only review" severity="contrast" />
+      </div>
+
+      @if (overview.signals.length > 0) {
+        <p-table [value]="overview.signals" responsiveLayout="scroll">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Severity</th>
+              <th>Pattern</th>
+              <th>Target</th>
+              <th>Activity</th>
+              <th>Window</th>
+              <th>Last seen</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-signal>
+            <tr>
+              <td>
+                <p-tag [value]="severityLabel(signal.severity)" [severity]="severityStyle(signal.severity)" />
+              </td>
+              <td>
+                <div class="signal-type">{{ signalTypeLabel(signal.type) }}</div>
+                <div class="signal-copy">{{ signal.title }}</div>
+              </td>
+              <td>
+                <div class="signal-copy">{{ reviewTarget(signal) }}</div>
+                <div class="signal-meta">
+                  @if (signal.bidderId) {
+                    <span>Bidder #{{ signal.bidderId }}</span>
+                  }
+                  @if (signal.sellerId) {
+                    <span>Seller #{{ signal.sellerId }}</span>
+                  }
+                </div>
+              </td>
+              <td>
+                <div class="signal-copy">{{ signal.details }}</div>
+                <div class="signal-meta">
+                  <span>{{ signal.relatedBidCount }} bids</span>
+                  @if (signal.relatedAuctionCount > 1) {
+                    <span>{{ signal.relatedAuctionCount }} auctions</span>
+                  }
+                </div>
+              </td>
+              <td>
+                @if (signal.windowSeconds > 0) {
+                  <span>{{ signal.windowSeconds }}s</span>
+                } @else {
+                  <span class="text-body-secondary">Cross-auction</span>
+                }
+              </td>
+              <td>{{ signal.lastSeenAt | date: 'MMM d, y, h:mm a' }}</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      } @else {
+        <div class="empty-state">
+          <i class="pi pi-shield"></i>
+          <h3>No suspicious signals right now</h3>
+          <p>The current bid history does not cross the defined fraud thresholds.</p>
+        </div>
+      }
+    </p-card>
+  }
+</section>

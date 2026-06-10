@@ -74,6 +74,7 @@ Responsabilitati principale:
 - suporta `reserve price` optional si expune starea `reserve met / not met`
 - suporta `buy now price` optional si actiune de cumparare imediata din pagina de detalii
 - afiseaza dashboard operational cu KPI-uri si breakdown-uri pe categorii
+- afiseaza pagina `Fraud Signals` cu pattern-uri suspecte detectate read-only
 - afiseaza notificari in-app si unread badge
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
@@ -186,6 +187,7 @@ In `auction-ui`, zonele importante sunt:
 - `features/my-bids`: pagina dedicata pentru activitatea de bid a userului curent
 - `features/my-watchlist`: pagina dedicata pentru loturile urmarite
 - `features/dashboard`: dashboard operational pentru marketplace
+- `features/fraud-signals`: review operational pentru semnale suspecte
 - `app.routes.ts`: rutele UI
 
 ## Ce face aplicatia acum
@@ -203,6 +205,7 @@ Backend-ul suporta:
 - reserve price optional in create, edit, close summary si evenimente
 - buy now price optional in create, edit, close summary si endpoint dedicat pentru cumparare imediata
 - endpoint analytics pentru dashboard operational agregat
+- endpoint fraud pentru semnale suspecte calculate on-demand
 - listare notificari pentru userul curent
 - unread notifications count
 - `mark as read` si `mark all as read`
@@ -236,6 +239,7 @@ Frontend-ul suporta:
 - pagina dedicata `My Bids` la `/my-bids`
 - pagina dedicata `My Watchlist` la `/my-watchlist`
 - pagina dedicata `Dashboard` la `/dashboard`
+- pagina dedicata `Fraud Signals` la `/fraud-signals`
 - pagina dedicata `Notifications` la `/notifications`
 - afisare `Reserve met`, `Reserve pending` sau `Reserve not met` in paginile relevante
 - afisare `Buy Now` in detalii si in listele relevante atunci cand lotul are `buyNowPrice`
@@ -1003,6 +1007,7 @@ Tipurile care trimit email in MVP sunt:
 - `GET /api/auctions/me/bids`
 - `POST /api/auctions` si `PUT /api/auctions/{id}` accepta si `reservePrice`, `buyNowPrice`
 - `GET /api/analytics/dashboard`
+- `GET /api/fraud/signals`
 - `GET /api/me/notifications`
 - `GET /api/me/notifications/unread-count`
 - `POST /api/me/notifications/{id}/read`
@@ -1017,6 +1022,7 @@ Tipurile care trimit email in MVP sunt:
 
 - `GET /auctions`
 - `GET /dashboard`
+- `GET /fraud-signals`
 - `GET /auctions/new`
 - `GET /my-watchlist`
 - `GET /my-auctions`
@@ -1199,4 +1205,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. Fraud / Suspicious Activity Detection
+1. Reviews / Rating

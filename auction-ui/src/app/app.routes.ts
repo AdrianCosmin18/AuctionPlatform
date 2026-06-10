@@ -23,6 +23,11 @@ export const routes: Routes = [
       import('./features/dashboard/dashboard.page').then((m) => m.DashboardPageComponent)
   },
   {
+    path: 'fraud-signals',
+    loadComponent: () =>
+      import('./features/fraud-signals/fraud-signals.page').then((m) => m.FraudSignalsPageComponent)
+  },
+  {
     path: 'my-auctions',
     loadComponent: () =>
       import('./features/my-auctions/my-auctions.page').then((m) => m.MyAuctionsPageComponent)

@@ -18,6 +18,8 @@ public interface BidRepository extends JpaRepository<BidEntity, Long> {
 
     List<BidEntity> findByBidderIdOrderByCreatedAtDesc(Long bidderId);
 
+    List<BidEntity> findAllByOrderByCreatedAtAsc();
+
     Optional<BidEntity> findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(Long auctionId);
 
     @Query("""
