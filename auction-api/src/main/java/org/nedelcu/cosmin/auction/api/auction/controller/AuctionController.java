@@ -99,6 +99,14 @@ public class AuctionController {
         return auctionService.close(id, resolveCurrentUserId(currentUserId));
     }
 
+    @PostMapping("/{id}/buy-now")
+    public AuctionResponse buyNowAuction(
+            @PathVariable("id") Long id,
+            @RequestHeader(name = "X-User-Id", required = false) Long currentUserId
+    ) {
+        return auctionService.buyNow(id, resolveCurrentUserId(currentUserId));
+    }
+
     @PostMapping("/{id}/watch")
     public AuctionResponse watchAuction(
             @PathVariable("id") Long id,

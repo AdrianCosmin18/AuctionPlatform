@@ -73,11 +73,12 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
     startPrice: [100, [Validators.required, Validators.min(0.01)]],
     minIncrement: [10, [Validators.required, Validators.min(0.01)]],
     reservePrice: [null as number | null],
+    buyNowPrice: [null as number | null],
     endTime: ['', [Validators.required]],
     antiSnipingWindowSec: [120],
     antiSnipingExtendSec: [30],
     createdBy: [1, [Validators.required, Validators.min(1)]]
-  }, { validators: [this.reservePriceValidator()] });
+  }, { validators: [this.reservePriceValidator(), this.buyNowPriceValidator()] });
 
   constructor() {
     this.auctionForm.controls.categoryCode.valueChanges.subscribe(() => {
@@ -132,6 +133,7 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
           startPrice: this.initialAuction.startPrice,
           minIncrement: this.initialAuction.minIncrement,
           reservePrice: this.initialAuction.reservePrice,
+          buyNowPrice: this.initialAuction.buyNowPrice,
           endTime: this.toDateTimeLocalValue(this.initialAuction.endTime),
           antiSnipingWindowSec: this.initialAuction.antiSnipingWindowSec ?? 120,
           antiSnipingExtendSec: this.initialAuction.antiSnipingExtendSec ?? 30,
@@ -169,6 +171,7 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
         startPrice: raw.startPrice,
         minIncrement: raw.minIncrement,
         reservePrice: raw.reservePrice,
+        buyNowPrice: raw.buyNowPrice,
         endTime: new Date(raw.endTime).toISOString(),
         antiSnipingWindowSec: raw.antiSnipingWindowSec || null,
         antiSnipingExtendSec: raw.antiSnipingExtendSec || null,
@@ -260,6 +263,37 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
       return reservePrice >= startPrice
         ? null
         : { reservePriceBelowStartPrice: true };
+    };
+  }
+
+  private buyNowPriceValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const startPrice = Number(control.get('startPrice')?.value);
+      const reservePriceValue = control.get('reservePrice')?.value;
+      const buyNowPriceValue = control.get('buyNowPrice')?.value;
+
+      if (buyNowPriceValue === null || buyNowPriceValue === undefined || buyNowPriceValue === '') {
+        return null;
+      }
+
+      const buyNowPrice = Number(buyNowPriceValue);
+      const reservePrice = reservePriceValue === null || reservePriceValue === undefined || reservePriceValue === ''
+        ? null
+        : Number(reservePriceValue);
+
+      if (!Number.isFinite(startPrice) || !Number.isFinite(buyNowPrice)) {
+        return null;
+      }
+
+      if (buyNowPrice <= startPrice) {
+        return { buyNowPriceBelowOrEqualStartPrice: true };
+      }
+
+      if (reservePrice !== null && Number.isFinite(reservePrice) && buyNowPrice < reservePrice) {
+        return { buyNowPriceBelowReservePrice: true };
+      }
+
+      return null;
     };
   }
 }

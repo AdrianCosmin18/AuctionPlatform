@@ -71,6 +71,10 @@ export class AuctionApiService {
     return this.http.post<Auction>(`${this.baseUrl}/${id}/close`, {}, this.userAwareOptions);
   }
 
+  buyNowAuction(id: number): Observable<Auction> {
+    return this.http.post<Auction>(`${this.baseUrl}/${id}/buy-now`, {}, this.userAwareOptions);
+  }
+
   watchAuction(id: number): Observable<Auction> {
     return this.http.post<Auction>(`${this.baseUrl}/${id}/watch`, {}, this.userAwareOptions);
   }

@@ -132,6 +132,7 @@ class AuctionServiceTest {
                 new BigDecimal("500.00"),
                 new BigDecimal("25.00"),
                 null,
+                null,
                 endTime,
                 30,
                 30,
@@ -169,6 +170,7 @@ class AuctionServiceTest {
                 new BigDecimal("100.00"),
                 new BigDecimal("10.00"),
                 null,
+                null,
                 endTime,
                 30,
                 30,
@@ -197,6 +199,7 @@ class AuctionServiceTest {
                 new BigDecimal("100.00"),
                 new BigDecimal("10.00"),
                 new BigDecimal("90.00"),
+                null,
                 endTime,
                 30,
                 30,
@@ -235,6 +238,7 @@ class AuctionServiceTest {
                 new BigDecimal("250.00"),
                 new BigDecimal("15.00"),
                 null,
+                null,
                 endTime,
                 120,
                 45,
@@ -272,6 +276,7 @@ class AuctionServiceTest {
                 null,
                 new BigDecimal("100.00"),
                 new BigDecimal("5.00"),
+                null,
                 null,
                 OffsetDateTime.now().plusHours(1),
                 30,
@@ -536,6 +541,67 @@ class AuctionServiceTest {
         assertThat(closedEvent.winnerId()).isNull();
         assertThat(closedEvent.winningBidId()).isNull();
         assertThat(closedEvent.reserveMet()).isFalse();
+    }
+
+    @Test
+    void createRejectsBuyNowPriceBelowOrEqualOpeningPrice() {
+        OffsetDateTime endTime = OffsetDateTime.now().plusHours(2);
+
+        assertThatThrownBy(() -> auctionService.create(new org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest(
+                "Lot invalid buy now",
+                "Buy now below opening price",
+                "RARE_BOOKS",
+                "SIGNED_COPIES",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new BigDecimal("100.00"),
+                new BigDecimal("10.00"),
+                null,
+                new BigDecimal("100.00"),
+                endTime,
+                30,
+                30,
+                1L,
+                List.of()
+        )))
+                .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
+                .hasMessageContaining("Buy Now price must be greater than the opening price");
+    }
+
+    @Test
+    void buyNowClosesAuctionImmediatelyWithDedicatedReason() {
+        Long auctionId = 90L;
+        Long buyerId = 2L;
+        AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusMinutes(5), 30, 30);
+        auction.setCreatedBy(1L);
+        auction.setBuyNowPrice(new BigDecimal("500.00"));
+        auction.setReservePrice(new BigDecimal("300.00"));
+        auction.setReserveMet(false);
+        auction.setCurrentPrice(new BigDecimal("220.00"));
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuctionResponse response = auctionService.buyNow(auctionId, buyerId);
+
+        assertThat(response.status()).isEqualTo(AuctionStatus.ENDED);
+        assertThat(response.winnerId()).isEqualTo(buyerId);
+        assertThat(response.winningBidId()).isNull();
+        assertThat(response.finalPrice()).isEqualByComparingTo("500.00");
+        assertThat(response.closedReason()).isEqualTo(AuctionCloseReason.BUY_NOW);
+        assertThat(response.reserveMet()).isTrue();
+
+        verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
+        AuctionClosedEvent closedEvent = (AuctionClosedEvent) outboxPayloadCaptor.getValue();
+        assertThat(closedEvent.winnerId()).isEqualTo(buyerId);
+        assertThat(closedEvent.winningBidId()).isNull();
+        assertThat(closedEvent.finalPrice()).isEqualByComparingTo("500.00");
+        assertThat(closedEvent.closedReason()).isEqualTo(AuctionCloseReason.BUY_NOW);
+        assertThat(closedEvent.reserveMet()).isTrue();
     }
 
     @Test

@@ -67,6 +67,9 @@ public class AuctionEntity {
     @Column(name = "reserve_price")
     private BigDecimal reservePrice;
 
+    @Column(name = "buy_now_price")
+    private BigDecimal buyNowPrice;
+
     @Column(name = "reserve_met")
     private Boolean reserveMet;
 

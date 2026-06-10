@@ -80,6 +80,10 @@
                   <span class="meta-label">Reserve</span>
                   <strong>{{ auction.reservePrice !== null ? (auction.reservePrice | currency: 'EUR' : 'symbol' : '1.2-2') : 'No reserve' }}</strong>
                 </div>
+                <div>
+                  <span class="meta-label">Buy Now</span>
+                  <strong>{{ auction.buyNowPrice !== null ? (auction.buyNowPrice | currency: 'EUR' : 'symbol' : '1.2-2') : 'Not available' }}</strong>
+                </div>
               </div>
 
               <div class="watchlist-card__actions">

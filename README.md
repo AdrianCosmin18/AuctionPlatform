@@ -71,6 +71,7 @@ Responsabilitati principale:
 - permite adaugarea unei licitatii in watchlist si gestionarea `My Watchlist`
 - ofera zona `My Area` cu pagini separate pentru `My Auctions`, `My Bids` si `My Watchlist`
 - suporta `reserve price` optional si expune starea `reserve met / not met`
+- suporta `buy now price` optional si actiune de cumparare imediata din pagina de detalii
 - afiseaza notificari in-app si unread badge
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
@@ -197,6 +198,7 @@ Backend-ul suporta:
 - listare `My Bids`
 - listare `My Watchlist`
 - reserve price optional in create, edit, close summary si evenimente
+- buy now price optional in create, edit, close summary si endpoint dedicat pentru cumparare imediata
 - listare notificari pentru userul curent
 - unread notifications count
 - `mark as read` si `mark all as read`
@@ -231,8 +233,10 @@ Frontend-ul suporta:
 - pagina dedicata `My Watchlist` la `/my-watchlist`
 - pagina dedicata `Notifications` la `/notifications`
 - afisare `Reserve met`, `Reserve pending` sau `Reserve not met` in paginile relevante
+- afisare `Buy Now` in detalii si in listele relevante atunci cand lotul are `buyNowPrice`
 - start auction din lista si din pagina de detalii
 - close auction din lista si din pagina de detalii
+- buy now din pagina de detalii pentru loturile `RUNNING` eligibile
 - plasare bid din UI
 - creare licitatie cu pana la 5 imagini locale prin upload `multipart/form-data`
 - countdown reactiv pana la `endTime`
@@ -729,6 +733,35 @@ In frontend:
 - dupa inchidere, bid form devine dezactivat
 - pagina de detalii afiseaza rezultatul final al licitatiei, inclusiv castigatorul daca exista
 
+### 4b. Buy now
+
+Clientul sau UI-ul apeleaza:
+
+- `POST /api/auctions/{id}/buy-now`
+
+Aplicatia:
+
+- incarca licitatia cu `PESSIMISTIC_WRITE`
+- verifica sa fie `RUNNING`
+- verifica existenta unui `buyNowPrice`
+- blocheaza seller-ul sa isi cumpere propria licitatie
+- respinge cererea daca `currentPrice >= buyNowPrice`
+- seteaza `currentPrice = buyNowPrice`
+- seteaza `winnerId` la userul curent
+- seteaza `winningBidId = null`
+- seteaza `finalPrice = buyNowPrice`
+- seteaza `closedAt`, `closedReason = BUY_NOW`, `status = ENDED`
+- recomputa `reserveMet`
+- salveaza evenimentul `AUCTION_CLOSED` in `outbox_events`
+- trimite `AUCTION_CLOSED` pe WebSocket
+
+In frontend:
+
+- formularul de create/edit accepta `buyNowPrice` optional
+- pagina de detalii afiseaza pretul `Buy Now`
+- butonul `Buy Now` este disponibil doar pentru loturi `RUNNING` unde `currentPrice < buyNowPrice`
+- dupa succes, pagina se actualizeaza ca licitatie inchisa si bid form devine dezactivat
+
 ### 5. Auto-close auction
 
 Periodic, scheduler-ul cauta licitatiile `RUNNING` cu `endTime <= now`.
@@ -778,6 +811,10 @@ Formula anti-sniping:
 - un bid nou trebuie sa fie cel putin `currentPrice + minIncrement`
 - dupa acceptare, `currentPrice` devine suma bid-ului
 - daca exista `reservePrice`, lotul se vinde doar daca highest bid-ul final este `>= reservePrice`
+- daca exista `buyNowPrice`, acesta trebuie sa fie `> startPrice`
+- daca exista simultan `reservePrice`, atunci `buyNowPrice` trebuie sa fie `>= reservePrice`
+- `Buy Now` foloseste un pret fix configurat inainte de start; nu se recalculeaza dinamic in functie de `currentPrice`
+- `Buy Now` inchide imediat licitatia la pretul configurat si seteaza `closedReason = BUY_NOW`
 - `reserveMet` devine:
   - `null` daca licitatia nu are reserve price
   - `true` daca pretul curent a atins reserve price
@@ -959,13 +996,14 @@ Tipurile care trimit email in MVP sunt:
 - `GET /api/auctions/me/watchlist`
 - `GET /api/auctions/me/created`
 - `GET /api/auctions/me/bids`
-- `POST /api/auctions` si `PUT /api/auctions/{id}` accepta si `reservePrice`
+- `POST /api/auctions` si `PUT /api/auctions/{id}` accepta si `reservePrice`, `buyNowPrice`
 - `GET /api/me/notifications`
 - `GET /api/me/notifications/unread-count`
 - `POST /api/me/notifications/{id}/read`
 - `POST /api/me/notifications/read-all`
 - `POST /api/auctions/{id}/start`
 - `POST /api/auctions/{id}/close`
+- `POST /api/auctions/{id}/buy-now`
 - `POST /api/auctions/{id}/bids`
 - `GET /api/auctions/{id}/bids`
 
@@ -1154,4 +1192,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. Buy Now
+1. Analytics / Dashboard

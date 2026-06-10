@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { DividerModule } from 'primeng/divider';
@@ -52,8 +52,10 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   private readonly api = inject(AuctionApiService);
   private readonly ws = inject(AuctionWsService);
   private readonly fb = inject(FormBuilder);
+  private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
   private readonly destroy$ = new Subject<void>();
+  private readonly currentUserId = this.api.getCurrentUserId();
   private auctionId: number | null = null;
   private liveSubscription?: Subscription;
   private liveMessageTimer: ReturnType<typeof setTimeout> | null = null;
@@ -207,6 +209,40 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
           this.error$.next(error?.error?.detail ?? 'Unable to close the auction.');
         }
       });
+  }
+
+  buyNowAuction(): void {
+    const auction = this.auction$.value;
+
+    if (!auction || !this.canBuyNow(auction)) {
+      return;
+    }
+
+    this.confirmationService.confirm({
+      header: 'Confirm Buy Now',
+      message: `This will immediately close the auction and purchase the item for ${this.formatAmount(auction.buyNowPrice!)}. Do you want to continue?`,
+      icon: 'pi pi-exclamation-triangle',
+      rejectLabel: 'Cancel',
+      acceptLabel: 'Confirm purchase',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: () => {
+        this.actionLoading$.next(true);
+        this.error$.next(null);
+        this.api
+          .buyNowAuction(auction.id)
+          .pipe(finalize(() => this.actionLoading$.next(false)))
+          .subscribe({
+            next: (updatedAuction) => {
+              this.auction$.next(updatedAuction);
+              this.suppressRealtimeToast('AUCTION_CLOSED');
+              this.showToast('success', 'Buy Now completed', 'The auction was closed instantly at the Buy Now price.');
+            },
+            error: (error) => {
+              this.error$.next(error?.error?.detail ?? 'Unable to complete Buy Now.');
+            }
+          });
+      }
+    });
   }
 
   toggleWatch(): void {
@@ -378,6 +414,24 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     }
 
     return auction.status === 'ENDED' ? 'secondary' : 'warn';
+  }
+
+  canBuyNow(auction: Auction | null): boolean {
+    return (
+      !!auction &&
+      auction.status === 'RUNNING' &&
+      auction.buyNowPrice !== null &&
+      auction.currentPrice < auction.buyNowPrice &&
+      auction.createdBy !== this.currentUserId
+    );
+  }
+
+  buyNowLabel(auction: Auction | null): string {
+    if (!auction?.buyNowPrice) {
+      return 'Buy Now';
+    }
+
+    return `Buy now for ${this.formatAmount(auction.buyNowPrice)}`;
   }
 
   selectImage(index: number): void {

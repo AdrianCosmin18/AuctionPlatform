@@ -12,6 +12,7 @@ export interface CreateAuctionRequest {
   startPrice: number;
   minIncrement: number;
   reservePrice: number | null;
+  buyNowPrice: number | null;
   endTime: string;
   antiSnipingWindowSec: number | null;
   antiSnipingExtendSec: number | null;

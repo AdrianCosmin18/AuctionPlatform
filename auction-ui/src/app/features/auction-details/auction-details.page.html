@@ -151,6 +151,12 @@
                 </div>
               </div>
               <div>
+                <span class="meta-label">Buy Now price</span>
+                <div class="meta-value">
+                  {{ vm.auction.buyNowPrice !== null ? (vm.auction.buyNowPrice | currency: 'EUR' : 'symbol' : '1.2-2') : 'Not available' }}
+                </div>
+              </div>
+              <div>
                 <span class="meta-label">Reserve status</span>
                 <div class="meta-value">{{ reserveStatusLabel(vm.auction) ?? 'Not applicable' }}</div>
               </div>
@@ -240,6 +246,15 @@
                 <p-button icon="pi pi-play" label="Start auction" [loading]="vm.actionLoading" (onClick)="startAuction()" />
               }
               @if (vm.auction.status === 'RUNNING') {
+                @if (canBuyNow(vm.auction)) {
+                  <p-button
+                    icon="pi pi-bolt"
+                    [label]="buyNowLabel(vm.auction)"
+                    severity="warn"
+                    [loading]="vm.actionLoading"
+                    (onClick)="buyNowAuction()"
+                  />
+                }
                 <p-button
                   icon="pi pi-stop"
                   label="Close auction"

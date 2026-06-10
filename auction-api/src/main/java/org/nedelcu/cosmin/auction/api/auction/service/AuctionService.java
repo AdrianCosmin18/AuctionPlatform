@@ -284,6 +284,46 @@ public class AuctionService {
     }
 
     @Transactional
+    public AuctionResponse buyNow(Long id, Long currentUserId) {
+        AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
+
+        if (auction.getStatus() != AuctionStatus.RUNNING) {
+            throw new BusinessException("Only RUNNING auctions support Buy Now");
+        }
+
+        if (auction.getBuyNowPrice() == null) {
+            throw new BusinessException("Buy Now is not available for this auction");
+        }
+
+        if (auction.getCreatedBy() != null && auction.getCreatedBy().equals(currentUserId)) {
+            throw new BusinessException("The seller cannot Buy Now their own auction");
+        }
+
+        if (auction.getEndTime() == null || !auction.getEndTime().isAfter(OffsetDateTime.now())) {
+            throw new BusinessException("Auction has already ended");
+        }
+
+        if (auction.getCurrentPrice().compareTo(auction.getBuyNowPrice()) >= 0) {
+            throw new BusinessException("Buy Now is no longer available because the current price has reached it");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        auction.setCurrentPrice(auction.getBuyNowPrice());
+        auction.setReserveMet(computeReserveMet(auction.getBuyNowPrice(), auction.getReservePrice()));
+
+        AuctionCloseSummary closeSummary = new AuctionCloseSummary(
+                currentUserId,
+                null,
+                auction.getBuyNowPrice(),
+                AuctionCloseReason.BUY_NOW,
+                auction.getReserveMet()
+        );
+
+        return closeAuction(auction, now, closeSummary, currentUserId);
+    }
+
+    @Transactional
     public AuctionResponse closeExpiredAuction(Long id) {
         AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
@@ -540,6 +580,7 @@ public class AuctionService {
                 auctionEntity.getCurrentPrice(),
                 auctionEntity.getMinIncrement(),
                 auctionEntity.getReservePrice(),
+                auctionEntity.getBuyNowPrice(),
                 auctionEntity.getReserveMet(),
                 auctionEntity.getStatus(),
                 auctionEntity.getStartTime(),
@@ -596,7 +637,15 @@ public class AuctionService {
             AuctionCloseReason closedReason,
             Long currentUserId
     ) {
-        AuctionCloseSummary closeSummary = resolveCloseSummary(auction, closedReason);
+        return closeAuction(auction, now, resolveCloseSummary(auction, closedReason), currentUserId);
+    }
+
+    private AuctionResponse closeAuction(
+            AuctionEntity auction,
+            OffsetDateTime now,
+            AuctionCloseSummary closeSummary,
+            Long currentUserId
+    ) {
 
         auction.setStatus(AuctionStatus.ENDED);
         auction.setWinnerId(closeSummary.winnerId());
@@ -723,6 +772,15 @@ public class AuctionService {
             throw new BusinessException("Reserve price must be greater than or equal to the opening price");
         }
 
+        BigDecimal buyNowPrice = request.buyNowPrice();
+        if (buyNowPrice != null && buyNowPrice.compareTo(request.startPrice()) <= 0) {
+            throw new BusinessException("Buy Now price must be greater than the opening price");
+        }
+
+        if (buyNowPrice != null && reservePrice != null && buyNowPrice.compareTo(reservePrice) < 0) {
+            throw new BusinessException("Buy Now price must be greater than or equal to the reserve price");
+        }
+
         String itemCondition = trimToNull(request.itemCondition());
         if (itemCondition != null && !AuctionDomainRules.isValidCondition(itemCondition)) {
             throw new BusinessException("Unsupported item condition: " + itemCondition);
@@ -755,6 +813,7 @@ public class AuctionService {
         auction.setCurrentPrice(request.startPrice());
         auction.setMinIncrement(request.minIncrement());
         auction.setReservePrice(request.reservePrice());
+        auction.setBuyNowPrice(request.buyNowPrice());
         auction.setReserveMet(computeReserveMet(request.startPrice(), request.reservePrice()));
         auction.setEndTime(request.endTime());
         auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);

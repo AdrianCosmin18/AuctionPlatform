@@ -202,6 +202,9 @@
                     @if (auction.reservePrice !== null) {
                       <small>Reserve {{ auction.reservePrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</small>
                     }
+                    @if (auction.buyNowPrice !== null) {
+                      <small>Buy Now {{ auction.buyNowPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</small>
+                    }
                   </div>
 
                   <div class="auction-card__timing" [class.auction-card__timing--critical]="endTimeTone(auction) === 'critical'" [class.auction-card__timing--warning]="endTimeTone(auction) === 'warning'">

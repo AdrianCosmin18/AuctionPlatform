@@ -228,6 +228,25 @@
     </div>
 
     <div class="form-field">
+      <label class="form-label" for="buyNowPrice">Buy Now price</label>
+      <p-inputNumber
+        inputId="buyNowPrice"
+        formControlName="buyNowPrice"
+        mode="currency"
+        currency="EUR"
+        locale="en-US"
+        styleClass="w-100"
+        inputStyleClass="w-100"
+      />
+      <small class="form-helper">Optional instant purchase price. Must be above opening price and any reserve price.</small>
+      @if (auctionForm.errors?.['buyNowPriceBelowOrEqualStartPrice']) {
+        <small class="field-error">Buy Now price must be greater than the opening price.</small>
+      } @else if (auctionForm.errors?.['buyNowPriceBelowReservePrice']) {
+        <small class="field-error">Buy Now price must be greater than or equal to the reserve price.</small>
+      }
+    </div>
+
+    <div class="form-field">
       <label class="form-label" for="endTime">Auction end time</label>
       <input id="endTime" type="datetime-local" class="form-control" formControlName="endTime" />
       @if (auctionForm.controls.endTime.touched && auctionForm.controls.endTime.errors?.['required']) {
