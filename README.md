@@ -69,6 +69,7 @@ Responsabilitati principale:
 - permite editarea unei licitatii `DRAFT` din browser
 - afiseaza pagina de detalii pentru o licitatie
 - permite adaugarea unei licitatii in watchlist si gestionarea `My Watchlist`
+- ofera zona `My Area` cu pagini separate pentru `My Auctions`, `My Bids` si `My Watchlist`
 - afiseaza notificari in-app si unread badge
 - permite start si close din UI pentru fluxul de administrare
 - permite plasarea de bid-uri
@@ -177,6 +178,8 @@ In `auction-ui`, zonele importante sunt:
 - `features/auction-form`: formular reutilizabil pentru create/edit
 - `features/auction-edit`: editare licitatie `DRAFT`
 - `features/auction-details`: snapshot REST + live updates + bid flow + countdown + bid history + live events
+- `features/my-auctions`: pagina dedicata pentru loturile create de userul curent
+- `features/my-bids`: pagina dedicata pentru activitatea de bid a userului curent
 - `features/my-watchlist`: pagina dedicata pentru loturile urmarite
 - `app.routes.ts`: rutele UI
 
@@ -189,6 +192,8 @@ Backend-ul suporta:
 - listare licitatii
 - citire licitatie dupa id
 - watch / unwatch pentru licitatii
+- listare `My Auctions`
+- listare `My Bids`
 - listare `My Watchlist`
 - listare notificari pentru userul curent
 - unread notifications count
@@ -219,6 +224,8 @@ Frontend-ul suporta:
 - editare licitatie `DRAFT` la `/auctions/:id/edit`
 - detalii licitatie la `/auctions/:id`
 - watch / unwatch din marketplace si pagina de detalii
+- pagina dedicata `My Auctions` la `/my-auctions`
+- pagina dedicata `My Bids` la `/my-bids`
 - pagina dedicata `My Watchlist` la `/my-watchlist`
 - pagina dedicata `Notifications` la `/notifications`
 - start auction din lista si din pagina de detalii
@@ -236,6 +243,8 @@ Frontend-ul suporta:
 - panou `Live events` cu evenimentele WebSocket receptionate in timp real
 - taxonomie categorie/subcategorie in create, edit, listare si detalii
 - `watchers count` in marketplace, details si watchlist
+- control operational pentru `My Auctions`: `Edit`, `Start`, `Close`
+- sumar pentru `My Bids`: latest bid, highest bid, total bids, leading/won state
 - unread badge in header pentru notificari
 - toast global in coltul ecranului pentru notificari noi de tip `AUCTION_WON`
 - `mark as read` si `mark all as read` pentru notificari
@@ -935,6 +944,8 @@ Tipurile care trimit email in MVP sunt:
 - `POST /api/auctions/{id}/watch`
 - `DELETE /api/auctions/{id}/watch`
 - `GET /api/auctions/me/watchlist`
+- `GET /api/auctions/me/created`
+- `GET /api/auctions/me/bids`
 - `GET /api/me/notifications`
 - `GET /api/me/notifications/unread-count`
 - `POST /api/me/notifications/{id}/read`
@@ -949,6 +960,8 @@ Tipurile care trimit email in MVP sunt:
 - `GET /auctions`
 - `GET /auctions/new`
 - `GET /my-watchlist`
+- `GET /my-auctions`
+- `GET /my-bids`
 - `GET /notifications`
 - `GET /auctions/:id/edit`
 - `GET /auctions/:id`
@@ -1127,4 +1140,4 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 Urmatorul feature planificat este:
 
-1. My Auctions / My Bids / My Watchlist
+1. Advanced bid increment rules

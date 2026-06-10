@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { Auction } from '../models/auction.model';
 import { Bid } from '../models/bid.model';
 import { CreateAuctionRequest } from '../models/create-auction-request.model';
+import { MyBidAuction } from '../models/my-bid-auction.model';
 import { PlaceBidRequest } from '../models/place-bid-request.model';
 
 @Injectable({
@@ -19,6 +20,10 @@ export class AuctionApiService {
       'X-User-Id': String(AuctionApiService.CURRENT_USER_ID)
     }
   };
+
+  getCurrentUserId(): number {
+    return AuctionApiService.CURRENT_USER_ID;
+  }
 
   getAuctions(): Observable<Auction[]> {
     return this.http.get<Auction[]>(this.baseUrl, this.userAwareOptions);
@@ -76,6 +81,14 @@ export class AuctionApiService {
 
   getMyWatchlist(): Observable<Auction[]> {
     return this.http.get<Auction[]>(`${this.baseUrl}/me/watchlist`, this.userAwareOptions);
+  }
+
+  getMyAuctions(): Observable<Auction[]> {
+    return this.http.get<Auction[]>(`${this.baseUrl}/me/created`, this.userAwareOptions);
+  }
+
+  getMyBids(): Observable<MyBidAuction[]> {
+    return this.http.get<MyBidAuction[]>(`${this.baseUrl}/me/bids`, this.userAwareOptions);
   }
 
   getBids(auctionId: number): Observable<Bid[]> {

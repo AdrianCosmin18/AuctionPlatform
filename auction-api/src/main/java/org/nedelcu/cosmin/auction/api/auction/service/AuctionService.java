@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ import org.nedelcu.cosmin.auction.api.auction.dto.AuctionImageResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest;
+import org.nedelcu.cosmin.auction.api.auction.dto.MyBidAuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionImageEntity;
@@ -360,6 +362,81 @@ public class AuctionService {
                         true
                 ))
                 .toList();
+    }
+
+    public List<AuctionResponse> findCreatedByUser(Long currentUserId) {
+        List<AuctionEntity> auctions = auctionRepository.findByCreatedByOrderByCreatedAtDesc(currentUserId);
+        List<Long> auctionIds = auctions.stream().map(AuctionEntity::getId).toList();
+        Map<Long, List<AuctionImageResponse>> imagesByAuctionId = loadImagesByAuctionId(auctionIds);
+        Map<Long, Long> watcherCountsByAuctionId = loadWatcherCountsByAuctionId(auctionIds);
+        List<Long> watchedAuctionIds = loadWatchedAuctionIds(currentUserId, auctionIds);
+
+        return auctions.stream()
+                .map(auction -> toResponse(
+                        auction,
+                        imagesByAuctionId.getOrDefault(auction.getId(), List.of()),
+                        watcherCountsByAuctionId.getOrDefault(auction.getId(), 0L),
+                        watchedAuctionIds.contains(auction.getId())
+                ))
+                .toList();
+    }
+
+    public List<MyBidAuctionResponse> findBiddingActivity(Long currentUserId) {
+        List<BidEntity> bids = bidRepository.findByBidderIdOrderByCreatedAtDesc(currentUserId);
+        if (bids.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, List<BidEntity>> bidsByAuctionId = new LinkedHashMap<>();
+        for (BidEntity bid : bids) {
+            bidsByAuctionId.computeIfAbsent(bid.getAuctionId(), ignored -> new ArrayList<>()).add(bid);
+        }
+
+        List<Long> auctionIds = new ArrayList<>(bidsByAuctionId.keySet());
+        Map<Long, AuctionEntity> auctionsById = auctionRepository.findAllById(auctionIds).stream()
+                .collect(java.util.stream.Collectors.toMap(AuctionEntity::getId, auction -> auction));
+        Map<Long, List<AuctionImageResponse>> imagesByAuctionId = loadImagesByAuctionId(auctionIds);
+        Map<Long, Long> watcherCountsByAuctionId = loadWatcherCountsByAuctionId(auctionIds);
+        List<Long> watchedAuctionIds = loadWatchedAuctionIds(currentUserId, auctionIds);
+        Map<Long, BidEntity> topBidsByAuctionId = loadTopBidsByAuctionId(auctionIds);
+
+        List<MyBidAuctionResponse> responses = new ArrayList<>();
+        for (Map.Entry<Long, List<BidEntity>> entry : bidsByAuctionId.entrySet()) {
+            AuctionEntity auction = auctionsById.get(entry.getKey());
+            if (auction == null) {
+                continue;
+            }
+
+            List<BidEntity> auctionBids = entry.getValue();
+            BidEntity latestBid = auctionBids.get(0);
+            BigDecimal highestBidAmount = auctionBids.stream()
+                    .map(BidEntity::getAmount)
+                    .max(BigDecimal::compareTo)
+                    .orElse(latestBid.getAmount());
+            BidEntity topBid = topBidsByAuctionId.get(auction.getId());
+            boolean won = auction.getWinnerId() != null && auction.getWinnerId().equals(currentUserId);
+            boolean leading = !won
+                    && auction.getStatus() == AuctionStatus.RUNNING
+                    && topBid != null
+                    && currentUserId.equals(topBid.getBidderId());
+
+            responses.add(new MyBidAuctionResponse(
+                    toResponse(
+                            auction,
+                            imagesByAuctionId.getOrDefault(auction.getId(), List.of()),
+                            watcherCountsByAuctionId.getOrDefault(auction.getId(), 0L),
+                            watchedAuctionIds.contains(auction.getId())
+                    ),
+                    auctionBids.size(),
+                    highestBidAmount,
+                    latestBid.getAmount(),
+                    latestBid.getCreatedAt(),
+                    leading,
+                    won
+            ));
+        }
+
+        return responses;
     }
 
     @Transactional
@@ -726,5 +803,19 @@ public class AuctionService {
 
     private long watcherCountForAuction(Long auctionId) {
         return loadWatcherCountsByAuctionId(List.of(auctionId)).getOrDefault(auctionId, 0L);
+    }
+
+    private Map<Long, BidEntity> loadTopBidsByAuctionId(List<Long> auctionIds) {
+        if (auctionIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, BidEntity> topBidsByAuctionId = new LinkedHashMap<>();
+        for (Long auctionId : new HashSet<>(auctionIds)) {
+            bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auctionId)
+                    .ifPresent(bid -> topBidsByAuctionId.put(auctionId, bid));
+        }
+
+        return topBidsByAuctionId;
     }
 }

@@ -13,6 +13,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface AuctionRepository extends JpaRepository<AuctionEntity, Long> {
 
+    List<AuctionEntity> findByCreatedByOrderByCreatedAtDesc(Long createdBy);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from AuctionEntity a where a.id = :id")
     Optional<AuctionEntity> findByIdForUpdate(@Param("id") Long id);

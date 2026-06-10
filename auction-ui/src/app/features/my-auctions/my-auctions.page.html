@@ -1,0 +1,125 @@
+<section class="page-section">
+  <section class="my-area-hero mb-4">
+    <div>
+      <a routerLink="/auctions" class="back-link">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to marketplace</span>
+      </a>
+      <div class="section-kicker">Seller workspace</div>
+      <h1 class="page-title mb-1">My Auctions</h1>
+      <p class="page-subtitle mb-0">Manage draft lots, launch live auctions, and close active listings.</p>
+    </div>
+
+    <div class="my-area-nav">
+      <a pButton routerLink="/my-auctions" label="My Auctions" severity="contrast"></a>
+      <a pButton routerLink="/my-bids" label="My Bids" severity="secondary" [text]="true"></a>
+      <a pButton routerLink="/my-watchlist" label="My Watchlist" severity="secondary" [text]="true"></a>
+    </div>
+  </section>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  <p-card styleClass="surface-card">
+    @if (loading) {
+      <div class="loading-state">
+        <p-progressSpinner strokeWidth="4" />
+      </div>
+    } @else if (auctions.length > 0) {
+      <div class="auction-grid">
+        @for (auction of auctions; track auction.id) {
+          <article class="auction-card">
+            <div class="auction-card__media">
+              @if (primaryImage(auction); as imageUrl) {
+                <img [src]="imageUrl" [alt]="auction.title" />
+              } @else {
+                <div class="auction-card__placeholder">
+                  <span>{{ categoryLabel(auction.categoryCode) }}</span>
+                  <strong>{{ auction.title }}</strong>
+                </div>
+              }
+            </div>
+
+            <div class="auction-card__body">
+              <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <p-tag [value]="auction.status" [severity]="statusSeverity(auction.status)" />
+                <span class="watchers-copy">{{ auction.watchersCount }} watchers</span>
+              </div>
+
+              <h3>{{ auction.title }}</h3>
+
+              <div class="auction-card__chips">
+                <p-chip [label]="categoryLabel(auction.categoryCode)" />
+                @if (subcategoryLabel(auction); as subcategory) {
+                  <p-chip [label]="subcategory" />
+                }
+              </div>
+
+              @if (auction.description) {
+                <p class="auction-card__description">{{ auction.description }}</p>
+              }
+
+              <div class="auction-card__meta">
+                <div>
+                  <span class="meta-label">Current price</span>
+                  <strong>{{ auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Ends</span>
+                  <strong>{{ auction.endTime ? (auction.endTime | date: 'MMM d, y, h:mm a') : 'TBA' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Authenticity</span>
+                  <strong>{{ authenticityLabel(auction.authenticityStatus) ?? '-' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Condition</span>
+                  <strong>{{ itemConditionLabel(auction.itemCondition) ?? '-' }}</strong>
+                </div>
+              </div>
+
+              <div class="auction-card__actions">
+                <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="View" severity="contrast"></a>
+                @if (canEdit(auction)) {
+                  <a
+                    pButton
+                    [routerLink]="['/auctions', auction.id, 'edit']"
+                    icon="pi pi-pencil"
+                    label="Edit"
+                    severity="secondary"
+                    [outlined]="true">
+                  </a>
+                }
+                @if (canStart(auction)) {
+                  <p-button
+                    icon="pi pi-play"
+                    label="Start"
+                    [loading]="actionLoadingId === auction.id"
+                    (onClick)="startAuction(auction)"
+                  />
+                }
+                @if (canClose(auction)) {
+                  <p-button
+                    icon="pi pi-stop"
+                    label="Close"
+                    severity="danger"
+                    [loading]="actionLoadingId === auction.id"
+                    (onClick)="closeAuction(auction)"
+                  />
+                }
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <div class="empty-state">
+        <i class="pi pi-briefcase"></i>
+        <h3>You have not listed any auctions yet</h3>
+        <p>Create a draft lot first, then return here to manage it through its lifecycle.</p>
+        <a pButton routerLink="/auctions/new" label="List an item" severity="contrast"></a>
+      </div>
+    }
+  </p-card>
+</section>

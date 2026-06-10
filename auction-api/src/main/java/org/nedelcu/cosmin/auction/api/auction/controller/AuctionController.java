@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.CreateAuctionRequest;
+import org.nedelcu.cosmin.auction.api.auction.dto.MyBidAuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.service.AuctionService;
 import org.springframework.http.MediaType;
@@ -117,6 +118,16 @@ public class AuctionController {
     @GetMapping("/me/watchlist")
     public List<AuctionResponse> getMyWatchlist(@RequestHeader(name = "X-User-Id", required = false) Long currentUserId) {
         return auctionService.findWatchlist(resolveCurrentUserId(currentUserId));
+    }
+
+    @GetMapping("/me/created")
+    public List<AuctionResponse> getMyAuctions(@RequestHeader(name = "X-User-Id", required = false) Long currentUserId) {
+        return auctionService.findCreatedByUser(resolveCurrentUserId(currentUserId));
+    }
+
+    @GetMapping("/me/bids")
+    public List<MyBidAuctionResponse> getMyBids(@RequestHeader(name = "X-User-Id", required = false) Long currentUserId) {
+        return auctionService.findBiddingActivity(resolveCurrentUserId(currentUserId));
     }
 
     @PostMapping("/{id}/bids")

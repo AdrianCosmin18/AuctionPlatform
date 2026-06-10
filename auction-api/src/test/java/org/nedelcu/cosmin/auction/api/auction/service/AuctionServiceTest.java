@@ -22,6 +22,7 @@ import org.nedelcu.cosmin.auction.api.auction.dto.AuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.BidResponse;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionImageEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionWatchlistEntity;
+import org.nedelcu.cosmin.auction.api.auction.dto.MyBidAuctionResponse;
 import org.nedelcu.cosmin.auction.api.auction.dto.PlaceBidRequest;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
@@ -290,6 +291,79 @@ class AuctionServiceTest {
         verify(auctionWatchlistRepository).delete(watch);
         assertThat(response.watchersCount()).isEqualTo(0L);
         assertThat(response.watchedByCurrentUser()).isFalse();
+    }
+
+    @Test
+    void findCreatedByUserReturnsCreatorAuctionsWithWatchState() {
+        Long userId = 2L;
+        Long createdAuctionId = 70L;
+        AuctionEntity createdAuction = new AuctionEntity();
+        createdAuction.setId(createdAuctionId);
+        createdAuction.setCreatedBy(userId);
+        createdAuction.setStatus(AuctionStatus.DRAFT);
+        createdAuction.setTitle("Seller draft");
+
+        when(auctionRepository.findByCreatedByOrderByCreatedAtDesc(userId)).thenReturn(List.of(createdAuction));
+        when(auctionWatchlistRepository.findWatcherCountsByAuctionIds(List.of(createdAuctionId)))
+                .thenReturn(List.of(countView(createdAuctionId, 3L)));
+        when(auctionWatchlistRepository.findWatchedAuctionIdsByUserIdAndAuctionIds(userId, List.of(createdAuctionId)))
+                .thenReturn(List.of(createdAuctionId));
+
+        List<AuctionResponse> response = auctionService.findCreatedByUser(userId);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).id()).isEqualTo(createdAuctionId);
+        assertThat(response.get(0).watchersCount()).isEqualTo(3L);
+        assertThat(response.get(0).watchedByCurrentUser()).isTrue();
+    }
+
+    @Test
+    void findBiddingActivityAggregatesLatestAndHighestBidPerAuction() {
+        Long userId = 2L;
+        Long auctionId = 80L;
+
+        BidEntity latestBid = new BidEntity();
+        latestBid.setId(201L);
+        latestBid.setAuctionId(auctionId);
+        latestBid.setBidderId(userId);
+        latestBid.setAmount(new BigDecimal("145.00"));
+        latestBid.setCreatedAt(OffsetDateTime.now().minusMinutes(1));
+
+        BidEntity olderHigherBid = new BidEntity();
+        olderHigherBid.setId(200L);
+        olderHigherBid.setAuctionId(auctionId);
+        olderHigherBid.setBidderId(userId);
+        olderHigherBid.setAmount(new BigDecimal("150.00"));
+        olderHigherBid.setCreatedAt(OffsetDateTime.now().minusMinutes(10));
+
+        AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusHours(2), 30, 30);
+        auction.setTitle("Tracked bid lot");
+
+        BidEntity topBid = new BidEntity();
+        topBid.setId(202L);
+        topBid.setAuctionId(auctionId);
+        topBid.setBidderId(userId);
+        topBid.setAmount(new BigDecimal("150.00"));
+
+        when(bidRepository.findByBidderIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(latestBid, olderHigherBid));
+        when(auctionRepository.findAllById(List.of(auctionId))).thenReturn(List.of(auction));
+        when(auctionWatchlistRepository.findWatcherCountsByAuctionIds(List.of(auctionId)))
+                .thenReturn(List.of(countView(auctionId, 4L)));
+        when(auctionWatchlistRepository.findWatchedAuctionIdsByUserIdAndAuctionIds(userId, List.of(auctionId)))
+                .thenReturn(List.of());
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auctionId))
+                .thenReturn(Optional.of(topBid));
+
+        List<MyBidAuctionResponse> response = auctionService.findBiddingActivity(userId);
+
+        assertThat(response).hasSize(1);
+        MyBidAuctionResponse myBid = response.get(0);
+        assertThat(myBid.auction().id()).isEqualTo(auctionId);
+        assertThat(myBid.totalBids()).isEqualTo(2L);
+        assertThat(myBid.latestBidAmount()).isEqualByComparingTo("145.00");
+        assertThat(myBid.highestBidAmount()).isEqualByComparingTo("150.00");
+        assertThat(myBid.leading()).isTrue();
+        assertThat(myBid.won()).isFalse();
     }
 
     @Test

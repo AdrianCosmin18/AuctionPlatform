@@ -1,0 +1,114 @@
+<section class="page-section">
+  <section class="my-area-hero mb-4">
+    <div>
+      <a routerLink="/auctions" class="back-link">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back to marketplace</span>
+      </a>
+      <div class="section-kicker">Bidder workspace</div>
+      <h1 class="page-title mb-1">My Bids</h1>
+      <p class="page-subtitle mb-0">Review the auctions you joined, your latest bids, and where you still lead.</p>
+    </div>
+
+    <div class="my-area-nav">
+      <a pButton routerLink="/my-auctions" label="My Auctions" severity="secondary" [text]="true"></a>
+      <a pButton routerLink="/my-bids" label="My Bids" severity="contrast"></a>
+      <a pButton routerLink="/my-watchlist" label="My Watchlist" severity="secondary" [text]="true"></a>
+    </div>
+  </section>
+
+  @if (errorMessage) {
+    <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+  }
+
+  <p-card styleClass="surface-card">
+    @if (loading) {
+      <div class="loading-state">
+        <p-progressSpinner strokeWidth="4" />
+      </div>
+    } @else if (bids.length > 0) {
+      <div class="bid-grid">
+        @for (bid of bids; track bid.auction.id) {
+          <article class="bid-card">
+            <div class="bid-card__media">
+              @if (primaryImage(bid.auction.images[0].imageUrl); as imageUrl) {
+                <img [src]="imageUrl" [alt]="bid.auction.title" />
+              } @else {
+                <div class="bid-card__placeholder">
+                  <span>{{ categoryLabel(bid.auction.categoryCode) }}</span>
+                  <strong>{{ bid.auction.title }}</strong>
+                </div>
+              }
+            </div>
+
+            <div class="bid-card__body">
+              <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                <p-tag [value]="bid.auction.status" [severity]="statusSeverity(bid.auction.status)" />
+                <p-tag [value]="bidStateLabel(bid)" [severity]="bidStateSeverity(bid)" />
+              </div>
+
+              <h3>{{ bid.auction.title }}</h3>
+
+              <div class="bid-card__chips">
+                <p-chip [label]="categoryLabel(bid.auction.categoryCode)" />
+                @if (subcategoryLabel(bid.auction.categoryCode, bid.auction.subcategoryCode); as subcategory) {
+                  <p-chip [label]="subcategory" />
+                }
+              </div>
+
+              @if (bid.auction.description) {
+                <p class="bid-card__description">{{ bid.auction.description }}</p>
+              }
+
+              <div class="bid-card__meta">
+                <div>
+                  <span class="meta-label">Current price</span>
+                  <strong>{{ bid.auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">My highest bid</span>
+                  <strong>{{ bid.highestBidAmount | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">My latest bid</span>
+                  <strong>{{ bid.latestBidAmount | currency: 'EUR' : 'symbol' : '1.2-2' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Latest bid placed</span>
+                  <strong>{{ bid.latestBidAt | date: 'MMM d, y, h:mm a' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">My bid count</span>
+                  <strong>{{ bid.totalBids }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Ends</span>
+                  <strong>{{ bid.auction.endTime ? (bid.auction.endTime | date: 'MMM d, y, h:mm a') : 'TBA' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Authenticity</span>
+                  <strong>{{ authenticityLabel(bid.auction.authenticityStatus) ?? '-' }}</strong>
+                </div>
+                <div>
+                  <span class="meta-label">Condition</span>
+                  <strong>{{ itemConditionLabel(bid.auction.itemCondition) ?? '-' }}</strong>
+                </div>
+              </div>
+
+              <div class="bid-card__actions">
+                <a pButton [routerLink]="['/auctions', bid.auction.id]" icon="pi pi-eye" label="View auction" severity="contrast"></a>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <div class="empty-state">
+        <i class="pi pi-chart-line"></i>
+        <h3>You have not placed any bids yet</h3>
+        <p>Browse the marketplace, enter a live auction, and your bidding activity will appear here.</p>
+        <a pButton routerLink="/auctions" label="Browse auctions" severity="contrast"></a>
+      </div>
+    }
+  </p-card>
+</section>
