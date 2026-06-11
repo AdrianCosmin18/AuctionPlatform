@@ -1,5 +1,10 @@
 import { AuctionCloseReason } from './auction-close-reason.type';
 
+export interface AuctionStartedEvent {
+  auctionId: number;
+  startedAt: string;
+}
+
 export interface BidPlacedEvent {
   auctionId: number;
   bidId: number;
@@ -32,4 +37,9 @@ export interface AuctionSuspendedEvent {
   suspendedAt: string;
 }
 
-export type AuctionBusinessEvent = BidPlacedEvent | AuctionExtendedEvent | AuctionClosedEvent | AuctionSuspendedEvent;
+export type AuctionBusinessEvent =
+  | AuctionStartedEvent
+  | BidPlacedEvent
+  | AuctionExtendedEvent
+  | AuctionClosedEvent
+  | AuctionSuspendedEvent;

@@ -3,6 +3,7 @@ import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleCha
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
+import { DatePickerModule } from 'primeng/datepicker';
 import { FileUploadModule } from 'primeng/fileupload';
 import { GalleriaModule } from 'primeng/galleria';
 import { InputNumberModule } from 'primeng/inputnumber';
@@ -33,6 +34,7 @@ interface PreviewImage {
     RouterLink,
     ReactiveFormsModule,
     ButtonModule,
+    DatePickerModule,
     FileUploadModule,
     GalleriaModule,
     InputTextModule,
@@ -74,10 +76,9 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
     minIncrement: [10, [Validators.required, Validators.min(0.01)]],
     reservePrice: [null as number | null],
     buyNowPrice: [null as number | null],
-    endTime: ['', [Validators.required]],
+    endTime: [null as Date | null, [Validators.required]],
     antiSnipingWindowSec: [120],
-    antiSnipingExtendSec: [30],
-    createdBy: [1, [Validators.required, Validators.min(1)]]
+    antiSnipingExtendSec: [30]
   }, { validators: [this.reservePriceValidator(), this.buyNowPriceValidator()] });
 
   constructor() {
@@ -134,10 +135,9 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
           minIncrement: this.initialAuction.minIncrement,
           reservePrice: this.initialAuction.reservePrice,
           buyNowPrice: this.initialAuction.buyNowPrice,
-          endTime: this.toDateTimeLocalValue(this.initialAuction.endTime),
+          endTime: this.toDateValue(this.initialAuction.endTime),
           antiSnipingWindowSec: this.initialAuction.antiSnipingWindowSec ?? 120,
-          antiSnipingExtendSec: this.initialAuction.antiSnipingExtendSec ?? 30,
-          createdBy: this.initialAuction.createdBy
+          antiSnipingExtendSec: this.initialAuction.antiSnipingExtendSec ?? 30
         },
         { emitEvent: false }
       );
@@ -172,10 +172,9 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
         minIncrement: raw.minIncrement,
         reservePrice: raw.reservePrice,
         buyNowPrice: raw.buyNowPrice,
-        endTime: new Date(raw.endTime).toISOString(),
+        endTime: raw.endTime!.toISOString(),
         antiSnipingWindowSec: raw.antiSnipingWindowSec || null,
         antiSnipingExtendSec: raw.antiSnipingExtendSec || null,
-        createdBy: raw.createdBy,
         imageUrls: []
       },
       files: [...this.selectedFiles]
@@ -230,14 +229,12 @@ export class AuctionFormComponent implements OnChanges, OnDestroy {
     }
   }
 
-  private toDateTimeLocalValue(value: string | null): string {
+  private toDateValue(value: string | null): Date | null {
     if (!value) {
-      return '';
+      return null;
     }
 
-    const date = new Date(value);
-    const offsetMs = date.getTimezoneOffset() * 60000;
-    return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+    return new Date(value);
   }
 
   private imageSrc(imageUrl: string): string {

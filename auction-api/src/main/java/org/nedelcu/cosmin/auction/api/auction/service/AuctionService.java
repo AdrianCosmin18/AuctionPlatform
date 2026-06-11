@@ -36,6 +36,7 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionStartedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.springframework.stereotype.Service;
@@ -121,6 +122,7 @@ public class AuctionService {
 
         AuctionEntity auction = new AuctionEntity();
         applyAuctionDraftFields(auction, request, now);
+        auction.setCreatedBy(currentUserId);
         auction.setStatus(AuctionStatus.DRAFT);
         auction.setStartTime(null);
         auction.setWinnerId(null);
@@ -159,6 +161,7 @@ public class AuctionService {
 
         AuctionEntity auction = new AuctionEntity();
         applyAuctionDraftFields(auction, request, now);
+        auction.setCreatedBy(currentUserId);
         auction.setStatus(AuctionStatus.DRAFT);
         auction.setStartTime(null);
         auction.setWinnerId(null);
@@ -189,6 +192,7 @@ public class AuctionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
         ensureDraftAuction(auction);
+        ensureAuctionOwner(auction, currentUserId);
         validateUpsertRequest(request);
         applyAuctionDraftFields(auction, request, OffsetDateTime.now());
 
@@ -215,6 +219,7 @@ public class AuctionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
         ensureDraftAuction(auction);
+        ensureAuctionOwner(auction, currentUserId);
         validateUpsertRequest(request);
         applyAuctionDraftFields(auction, request, OffsetDateTime.now());
 
@@ -249,6 +254,7 @@ public class AuctionService {
         AuctionEntity auction = auctionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
+        ensureAuctionOwner(auction, currentUserId);
         if (auction.getStatus() != AuctionStatus.DRAFT) {
             throw new BusinessException("Only DRAFT auctions can be started");
         }
@@ -264,6 +270,8 @@ public class AuctionService {
         auction.setUpdatedAt(now);
 
         AuctionEntity savedAuction = auctionRepository.save(auction);
+        AuctionStartedEvent auctionStartedEvent = new AuctionStartedEvent(savedAuction.getId(), now);
+        publishAuctionEvent(savedAuction.getId(), AuctionEventType.AUCTION_STARTED, auctionStartedEvent, now);
         return toResponse(
                 savedAuction,
                 loadImages(savedAuction.getId()),
@@ -282,6 +290,7 @@ public class AuctionService {
         AuctionEntity auction = auctionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + id));
 
+        ensureAuctionOwner(auction, currentUserId);
         if (auction.getStatus() != AuctionStatus.RUNNING) {
             throw new BusinessException("Only RUNNING auctions can be closed");
         }
@@ -405,6 +414,10 @@ public class AuctionService {
     public AuctionResponse watchAuction(Long auctionId, Long currentUserId) {
         AuctionEntity auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + auctionId));
+
+        if (auction.getCreatedBy() != null && auction.getCreatedBy().equals(currentUserId)) {
+            throw new BusinessException("You cannot watch your own auction");
+        }
 
         if (auctionWatchlistRepository.existsByUserIdAndAuctionId(currentUserId, auctionId)) {
             throw new BusinessException("The auction is already in the watchlist");
@@ -532,7 +545,7 @@ public class AuctionService {
     }
 
     @Transactional
-    public BidResponse placeBid(Long auctionId, PlaceBidRequest request) {
+    public BidResponse placeBid(Long auctionId, PlaceBidRequest request, Long currentUserId) {
         AuctionEntity auction = auctionRepository.findByIdForUpdate(auctionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Auction not found: " + auctionId));
 
@@ -546,6 +559,16 @@ public class AuctionService {
             throw new BusinessException("Auction has already ended");
         }
 
+        if (auction.getCreatedBy() != null && auction.getCreatedBy().equals(currentUserId)) {
+            throw new BusinessException("You cannot bid on your own auction");
+        }
+
+        bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auctionId)
+                .filter(topBid -> topBid.getBidderId() != null && topBid.getBidderId().equals(currentUserId))
+                .ifPresent(topBid -> {
+                    throw new BusinessException("You are already the highest bidder on this auction");
+                });
+
         BigDecimal minimumAcceptedAmount = auction.getCurrentPrice().add(auction.getMinIncrement());
         if (request.amount().compareTo(minimumAcceptedAmount) < 0) {
             throw new BusinessException("Bid amount must be at least " + minimumAcceptedAmount);
@@ -553,7 +576,7 @@ public class AuctionService {
 
         BidEntity bid = new BidEntity();
         bid.setAuctionId(auctionId);
-        bid.setBidderId(request.bidderId());
+        bid.setBidderId(currentUserId);
         bid.setAmount(request.amount());
         bid.setCreatedAt(now);
 
@@ -854,6 +877,12 @@ public class AuctionService {
         }
     }
 
+    private void ensureAuctionOwner(AuctionEntity auction, Long currentUserId) {
+        if (currentUserId == null || auction.getCreatedBy() == null || !auction.getCreatedBy().equals(currentUserId)) {
+            throw new BusinessException("You are not allowed to manage this auction");
+        }
+    }
+
     private void applyAuctionDraftFields(AuctionEntity auction, CreateAuctionRequest request, OffsetDateTime now) {
         auction.setTitle(request.title().trim());
         auction.setDescription(trimToNull(request.description()));
@@ -874,7 +903,6 @@ public class AuctionService {
         auction.setEndTime(request.endTime());
         auction.setAntiSnipingWindowSec(request.antiSnipingWindowSec() != null ? request.antiSnipingWindowSec() : 30);
         auction.setAntiSnipingExtendSec(request.antiSnipingExtendSec() != null ? request.antiSnipingExtendSec() : 30);
-        auction.setCreatedBy(request.createdBy());
         auction.setUpdatedAt(now);
     }
 

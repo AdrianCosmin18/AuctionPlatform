@@ -1,0 +1,23 @@
+.auth-shell {
+  min-height: calc(100vh - 10rem);
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.auth-card {
+  width: min(30rem, 100%);
+}
+
+.auth-copy,
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-footer {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.35rem;
+  color: #64748b;
+}

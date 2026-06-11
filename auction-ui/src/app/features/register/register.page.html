@@ -1,0 +1,40 @@
+<section class="auth-shell">
+  <p-card styleClass="auth-card">
+    <div class="auth-copy">
+      <div class="section-kicker">Create account</div>
+      <h1 class="page-title mb-2">Register</h1>
+      <p class="page-subtitle mb-0">Create a user account to list items, place bids, and access marketplace operations.</p>
+    </div>
+
+    @if (errorMessage) {
+      <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+    }
+
+    <form class="auth-form" [formGroup]="registerForm" (ngSubmit)="submit()">
+      <div class="form-field">
+        <label class="form-label" for="registerEmail">Email</label>
+        <input id="registerEmail" type="email" pInputText formControlName="email" class="w-100" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="registerPassword">Password</label>
+        <p-password inputId="registerPassword" formControlName="password" [feedback]="false" [toggleMask]="true" styleClass="w-100" inputStyleClass="w-100" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="confirmPassword">Confirm password</label>
+        <p-password inputId="confirmPassword" formControlName="confirmPassword" [feedback]="false" [toggleMask]="true" styleClass="w-100" inputStyleClass="w-100" />
+        @if (registerForm.controls.confirmPassword.touched && passwordMismatch()) {
+          <small class="field-error">Passwords must match.</small>
+        }
+      </div>
+
+      <p-button type="submit" label="Create account" icon="pi pi-user-plus" [loading]="loading" styleClass="w-100" />
+    </form>
+
+    <div class="auth-footer">
+      <span>Already have an account?</span>
+      <a routerLink="/login">Sign in</a>
+    </div>
+  </p-card>
+</section>

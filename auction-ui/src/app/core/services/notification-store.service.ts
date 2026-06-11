@@ -2,6 +2,7 @@ import { Injectable, OnDestroy, inject } from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { BehaviorSubject, Subscription, interval, startWith, switchMap } from 'rxjs';
 import { Notification } from '../models/notification.model';
+import { AuthService } from './auth.service';
 import { NotificationApiService } from './notification-api.service';
 
 @Injectable({
@@ -10,13 +11,45 @@ import { NotificationApiService } from './notification-api.service';
 export class NotificationStoreService implements OnDestroy {
   private readonly notificationApi = inject(NotificationApiService);
   private readonly messageService = inject(MessageService);
+  private readonly authService = inject(AuthService);
   private pollSubscription?: Subscription;
+  private authSubscription?: Subscription;
   private readonly announcedWinningNotificationIds = new Set<number>();
   private initializedWinningNotifications = false;
 
   readonly unreadCount$ = new BehaviorSubject<number>(0);
 
   startPolling(): void {
+    if (this.authSubscription) {
+      return;
+    }
+
+    this.authSubscription = this.authService.isAuthenticated$.subscribe((isAuthenticated) => {
+      if (isAuthenticated) {
+        this.beginPolling();
+        return;
+      }
+
+      this.pollSubscription?.unsubscribe();
+      this.pollSubscription = undefined;
+      this.unreadCount$.next(0);
+      this.announcedWinningNotificationIds.clear();
+      this.initializedWinningNotifications = false;
+    });
+  }
+
+  refreshUnreadCount(): void {
+    this.notificationApi.getUnreadCount().subscribe({
+      next: (response) => this.unreadCount$.next(response.unreadCount)
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.pollSubscription?.unsubscribe();
+    this.authSubscription?.unsubscribe();
+  }
+
+  private beginPolling(): void {
     if (this.pollSubscription) {
       return;
     }
@@ -33,16 +66,6 @@ export class NotificationStoreService implements OnDestroy {
         },
         error: () => this.unreadCount$.next(this.unreadCount$.value)
       });
-  }
-
-  refreshUnreadCount(): void {
-    this.notificationApi.getUnreadCount().subscribe({
-      next: (response) => this.unreadCount$.next(response.unreadCount)
-    });
-  }
-
-  ngOnDestroy(): void {
-    this.pollSubscription?.unsubscribe();
   }
 
   private announceWinningNotifications(notifications: Notification[]): void {

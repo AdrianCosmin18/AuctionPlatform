@@ -18,14 +18,16 @@
             @if (reserveStatusLabel(vm.auction); as reserveLabel) {
               <p-tag [value]="reserveLabel" [severity]="reserveStatusSeverity(vm.auction)" />
             }
-            <p-button
-              [icon]="vm.auction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
-              [label]="vm.auction.watchedByCurrentUser ? 'Watching' : 'Watch'"
-              severity="secondary"
-              [outlined]="!vm.auction.watchedByCurrentUser"
-              [loading]="vm.watchLoading"
-              (onClick)="toggleWatch()"
-            />
+            @if (vm.canWatch) {
+              <p-button
+                [icon]="vm.auction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
+                [label]="vm.auction.watchedByCurrentUser ? 'Watching' : 'Watch'"
+                severity="secondary"
+                [outlined]="!vm.auction.watchedByCurrentUser"
+                [loading]="vm.watchLoading"
+                (onClick)="toggleWatch()"
+              />
+            }
           }
         </div>
       </div>
@@ -84,7 +86,7 @@
             <app-auction-details-view [auction]="vm.auction" [bids]="vm.bids" />
             <p-divider />
             <div class="d-flex flex-wrap gap-2">
-              @if (vm.auction.status === 'DRAFT') {
+              @if (vm.auction.status === 'DRAFT' && vm.isOwner) {
                 <a
                   pButton
                   [routerLink]="['/auctions', vm.auction.id, 'edit']"
@@ -95,7 +97,16 @@
                 </a>
                 <p-button icon="pi pi-play" label="Start auction" [loading]="vm.actionLoading" (onClick)="startAuction()" />
               }
-              @if (vm.auction.status === 'RUNNING') {
+              @if (vm.auction.status === 'RUNNING' && vm.isOwner) {
+                <p-button
+                  icon="pi pi-stop"
+                  label="Close auction"
+                  severity="danger"
+                  [loading]="vm.actionLoading"
+                  (onClick)="closeAuction()"
+                />
+              }
+              @if (vm.auction.status === 'RUNNING' && !vm.isOwner) {
                 @if (canBuyNow(vm.auction)) {
                   <p-button
                     icon="pi pi-bolt"
@@ -105,13 +116,6 @@
                     (onClick)="buyNowAuction()"
                   />
                 }
-                <p-button
-                  icon="pi pi-stop"
-                  label="Close auction"
-                  severity="danger"
-                  [loading]="vm.actionLoading"
-                  (onClick)="closeAuction()"
-                />
               }
               <p-button
                 icon="pi pi-refresh"
@@ -157,7 +161,11 @@
                   }
                 </div>
 
-                @if (vm.auction.status !== 'RUNNING') {
+                @if (vm.isOwner) {
+                  <p-message severity="info" text="Owners cannot bid on their own auctions." />
+                } @else if (vm.isLeadingBidder) {
+                  <p-message severity="info" text="You are currently the highest bidder. Wait for another bid before bidding again." />
+                } @else if (vm.auction.status !== 'RUNNING') {
                   <p-message severity="info" text="This auction is not accepting bids in its current state." />
                 } @else if (vm.remainingTime?.expired) {
                   <p-message severity="warn" text="The auction timer has expired. Waiting for automatic closure." />

@@ -13,11 +13,12 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil, timer } from 'rxjs';
-import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, AuctionSuspendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
+import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, AuctionStartedEvent, AuctionSuspendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionRealtimeEvent } from '../../core/models/auction-realtime-event.model';
 import { AuctionStatus } from '../../core/models/auction-status.type';
 import { Bid } from '../../core/models/bid.model';
+import { AuthService } from '../../core/services/auth.service';
 import { AuctionApiService } from '../../core/services/auction-api.service';
 import { AuctionWsService } from '../../core/services/auction-ws.service';
 import { AuctionDetailsViewComponent } from './auction-details-view.component';
@@ -45,15 +46,15 @@ import { AuctionDetailsViewComponent } from './auction-details-view.component';
   styleUrl: './auction-details.page.scss'
 })
 export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
-  private static readonly CURRENT_BIDDER_ID = 2;
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(AuctionApiService);
   private readonly ws = inject(AuctionWsService);
+  private readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly messageService = inject(MessageService);
   private readonly destroy$ = new Subject<void>();
-  private readonly currentUserId = this.api.getCurrentUserId();
+  private readonly currentUserId = this.authService.getCurrentUserId();
   private auctionId: number | null = null;
   private liveSubscription?: Subscription;
   private liveMessageTimer: ReturnType<typeof setTimeout> | null = null;
@@ -121,7 +122,14 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       bidCount: bids.length,
       nextMinimumBid: auction ? Number(auction.currentPrice) + Number(auction.minIncrement) : null,
       lastBidderId: bids[0]?.bidderId ?? null,
-      canPlaceBid: auction?.status === 'RUNNING' && !remainingTime?.expired
+      isOwner: !!auction && auction.createdBy === this.currentUserId,
+      isLeadingBidder: bids[0]?.bidderId === this.currentUserId,
+      canPlaceBid: !!auction
+        && auction.status === 'RUNNING'
+        && !remainingTime?.expired
+        && auction.createdBy !== this.currentUserId
+        && bids[0]?.bidderId !== this.currentUserId,
+      canWatch: !!auction && auction.createdBy !== this.currentUserId
     }))
   );
 
@@ -246,7 +254,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   toggleWatch(): void {
     const auction = this.auction$.value;
 
-    if (!auction) {
+    if (!auction || auction.createdBy === this.currentUserId) {
       return;
     }
 
@@ -280,7 +288,11 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     const auction = this.auction$.value;
     const remainingTime = this.remainingTimeSnapshot();
 
-    if (!auction || this.bidForm.invalid || auction.status !== 'RUNNING' || remainingTime?.expired) {
+    if (this.placingBid$.value) {
+      return;
+    }
+
+    if (!auction || this.bidForm.invalid || auction.status !== 'RUNNING' || remainingTime?.expired || auction.createdBy === this.currentUserId) {
       this.bidForm.markAllAsTouched();
       return;
     }
@@ -298,7 +310,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     this.setLiveMessage(null);
 
     this.api
-      .placeBid(auction.id, { bidderId: AuctionDetailsPageComponent.CURRENT_BIDDER_ID, amount })
+      .placeBid(auction.id, { amount })
       .pipe(finalize(() => this.placingBid$.next(false)))
       .subscribe({
         next: (createdBid) => {
@@ -339,6 +351,10 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
   eventSummary(event: AuctionRealtimeEvent): string {
     switch (event.type) {
+      case 'AUCTION_STARTED': {
+        const payload = event.payload as AuctionStartedEvent;
+        return `Started at ${payload.startedAt}`;
+      }
       case 'BID_PLACED': {
         const payload = event.payload as BidPlacedEvent;
         return `Bid #${payload.bidId} at ${payload.amount}`;
@@ -366,6 +382,8 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
 
   eventSeverity(event: AuctionRealtimeEvent): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
     switch (event.type) {
+      case 'AUCTION_STARTED':
+        return 'success';
       case 'BID_PLACED':
         return 'success';
       case 'AUCTION_EXTENDED':
@@ -473,6 +491,18 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     }
 
     switch (event.type) {
+      case 'AUCTION_STARTED': {
+        const payload = event.payload as AuctionStartedEvent;
+        this.auction$.next({
+          ...auction,
+          status: 'RUNNING',
+          startTime: payload.startedAt
+        });
+        this.setLiveMessage('The auction is now live for bidding.', 5000);
+        this.maybeShowRealtimeToast('AUCTION_STARTED', 'success', 'Auction started', 'The auction is now live.');
+        this.syncBidDefaultAmount();
+        break;
+      }
       case 'BID_PLACED': {
         const payload = event.payload as BidPlacedEvent;
         const nextBid: Bid = {
@@ -488,7 +518,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
         this.auction$.next({ ...auction, currentPrice: payload.currentPrice });
         this.bids$.next([nextBid, ...this.bids$.value.filter((bid) => bid.id !== nextBid.id)]);
         this.setLiveMessage(
-          payload.bidderId === AuctionDetailsPageComponent.CURRENT_BIDDER_ID
+          payload.bidderId === this.currentUserId
             ? `Your bid is now live at ${this.formatAmount(payload.amount)}.`
             : `A competing bid moved the price to ${this.formatAmount(payload.currentPrice)}.`,
           4000
@@ -687,7 +717,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
   }
 
   private maybeShowRealtimeToast(
-    eventType: 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED' | 'AUCTION_SUSPENDED',
+    eventType: 'AUCTION_STARTED' | 'BID_PLACED' | 'AUCTION_EXTENDED' | 'AUCTION_CLOSED' | 'AUCTION_SUSPENDED',
     severity: 'success' | 'info' | 'warn' | 'error',
     summary: string,
     detail: string

@@ -35,6 +35,7 @@ Responsabilitati principale:
 - publica evenimentele din outbox in RabbitMQ
 - trimite evenimente live prin WebSocket
 - inchide automat licitatiile expirate
+- aplica autentificare JWT si authorization pe roluri `USER` / `ADMIN`
 
 ### `auction-shared`
 
@@ -97,6 +98,7 @@ Responsabilitati principale:
 - Bootstrap 5
 - RxJS
 - STOMP.js + SockJS
+- Spring Security + JWT
 
 ## Cum porneste local
 
@@ -194,6 +196,8 @@ In `auction-ui`, zonele importante sunt:
 
 Backend-ul suporta:
 
+- register / login cu JWT
+- roluri `USER` si `ADMIN`
 - creare licitatie
 - editare licitatie `DRAFT`
 - listare licitatii
@@ -225,9 +229,12 @@ Backend-ul suporta:
 - generare asincrona de notificari in-app in `notifications`
 - tracking simplu pentru livrarea email direct in tabela `notifications`
 - stocare locala pentru imaginile uploadate si servire din `/media/**`
+- rezolvarea user-ului curent din token JWT prin `CurrentUserService`
 
 Frontend-ul suporta:
 
+- pagini dedicate `Login` si `Register`
+- JWT interceptor si route guards
 - listare licitatii la `/auctions`
 - filtrare licitatii dupa status: `ALL`, `RUNNING`, `DRAFT`, `ENDED`
 - filtrare licitatii dupa categorie
@@ -268,6 +275,7 @@ Frontend-ul suporta:
 - unread badge in header pentru notificari
 - toast global in coltul ecranului pentru notificari noi de tip `AUCTION_WON`
 - `mark as read` si `mark all as read` pentru notificari
+- afisare conditionata a zonelor admin in functie de rolul user-ului autentificat
 
 ## Componente cheie
 
@@ -493,8 +501,8 @@ Retine loturile urmarite de fiecare utilizator:
 
 Pentru MVP:
 
-- user-ul curent este transmis simplu prin header-ul `X-User-Id`
-- UI foloseste acelasi model simplificat cu `user_id` numeric, fara autentificare completa
+- user-ul curent este rezolvat din token-ul JWT
+- watchlist-ul este accesibil doar pentru utilizatorul autentificat
 
 ### `notifications`
 
@@ -517,7 +525,7 @@ Pentru MVP:
 
 - notificarile sunt generate asincron in `auction-worker`
 - API-ul doar expune listarea si actiunile de read state
-- user-ul curent este rezolvat in continuare prin header-ul `X-User-Id`
+- user-ul curent este rezolvat din token-ul JWT
 - worker-ul trimite email doar pentru tipurile importante, iar statusul livrarii ramane pe notificare
 
 ### `outbox_events`
@@ -1229,8 +1237,10 @@ Tipurile de evenimente folosite in UI sunt:
 
 Exemple de useri locali folositi in testare:
 
-- creator: `id = 1`
-- bidder: `id = 2`
+- `collector@archivebid.test` / `password`
+- `curator@archivebid.test` / `password`
+- `dealer@archivebid.test` / `password`
+- `admin@archivebid.test` / `password`
 
 ## Ce urmeaza tehnic
 
@@ -1238,14 +1248,14 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 - `ROADMAP.md`
 
-Scope-ul functional planificat pentru MVP este considerat suficient in forma actuala.
+Autentificarea si autorizarea reale au fost integrate.
 
-Urmatorii pasi recomandati nu mai sunt feature-uri majore, ci pasi de inchidere:
+Urmatorii pasi recomandati sunt:
 
 1. stabilizare finala
    - smoke test end-to-end pentru fluxurile principale
    - verificare manuala pentru scenariile `RUNNING`, `ENDED`, `SUSPENDED`
-   - verificare notificari in-app, email si fraud modal
+   - verificare notificari in-app, email, auth si fraud modal
 2. curatare pentru livrare
    - revizie finala a textelor din UI
    - verificare consistentei `README.md` si `ROADMAP.md`
@@ -1255,4 +1265,4 @@ Urmatorii pasi recomandati nu mai sunt feature-uri majore, ci pasi de inchidere:
    - pregatirea unei prezentari scurte pentru arhitectura si fluxuri
    - notarea limitelor MVP asumate explicit
 
-Feature-uri precum `Reviews / Rating` sau `Advanced bid increment rules` raman in afara scope-ului actual.
+Feature-uri precum `Reviews / Rating`, `Advanced bid increment rules`, wallet, orders sau shipping raman in afara scope-ului actual.

@@ -248,21 +248,19 @@
 
     <div class="form-field">
       <label class="form-label" for="endTime">Auction end time</label>
-      <input id="endTime" type="datetime-local" class="form-control" formControlName="endTime" />
-      @if (auctionForm.controls.endTime.touched && auctionForm.controls.endTime.errors?.['required']) {
-        <small class="field-error">End time is required.</small>
-      }
-    </div>
-
-    <div class="form-field">
-      <label class="form-label" for="createdBy">Seller ID</label>
-      <p-inputNumber
-        inputId="createdBy"
-        formControlName="createdBy"
-        [useGrouping]="false"
+      <p-datepicker
+        inputId="endTime"
+        formControlName="endTime"
+        [showTime]="true"
+        hourFormat="24"
+        [showIcon]="true"
+        appendTo="body"
         styleClass="w-100"
         inputStyleClass="w-100"
       />
+      @if (auctionForm.controls.endTime.touched && auctionForm.controls.endTime.errors?.['required']) {
+        <small class="field-error">End time is required.</small>
+      }
     </div>
 
     <div class="form-field">

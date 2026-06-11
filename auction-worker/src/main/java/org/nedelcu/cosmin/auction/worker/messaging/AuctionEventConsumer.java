@@ -9,6 +9,7 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventEnvelope;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionStartedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -28,6 +29,12 @@ public class AuctionEventConsumer {
         log.info("Received auction event type={}", event.eventType());
 
         switch (AuctionEventType.valueOf(event.eventType())) {
+            case AUCTION_STARTED -> {
+                AuctionStartedEvent payload = objectMapper.readValue(event.payload(), AuctionStartedEvent.class);
+                auditService.save(event.eventType(), payload.auctionId(), event.payload());
+                log.info("Processing auction started: auctionId={}, startedAt={}",
+                        payload.auctionId(), payload.startedAt());
+            }
             case BID_PLACED -> {
                 BidPlacedEvent payload = objectMapper.readValue(event.payload(), BidPlacedEvent.class);
                 auditService.save(event.eventType(), payload.auctionId(), event.payload());

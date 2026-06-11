@@ -1,0 +1,32 @@
+<section class="auth-shell">
+  <p-card styleClass="auth-card">
+    <div class="auth-copy">
+      <div class="section-kicker">Secure access</div>
+      <h1 class="page-title mb-2">Sign in</h1>
+      <p class="page-subtitle mb-0">Access auctions, bidding activity, notifications, and admin tools based on your role.</p>
+    </div>
+
+    @if (errorMessage) {
+      <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />
+    }
+
+    <form class="auth-form" [formGroup]="loginForm" (ngSubmit)="submit()">
+      <div class="form-field">
+        <label class="form-label" for="email">Email</label>
+        <input id="email" type="email" pInputText formControlName="email" class="w-100" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="password">Password</label>
+        <p-password inputId="password" formControlName="password" [feedback]="false" [toggleMask]="true" styleClass="w-100" inputStyleClass="w-100" />
+      </div>
+
+      <p-button type="submit" label="Sign in" icon="pi pi-sign-in" [loading]="loading" styleClass="w-100" />
+    </form>
+
+    <div class="auth-footer">
+      <span>Need an account?</span>
+      <a routerLink="/register">Register</a>
+    </div>
+  </p-card>
+</section>

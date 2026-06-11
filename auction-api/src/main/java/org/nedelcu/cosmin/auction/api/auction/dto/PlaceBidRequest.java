@@ -6,9 +6,6 @@ import java.math.BigDecimal;
 
 public record PlaceBidRequest(
         @NotNull
-        Long bidderId,
-
-        @NotNull
         @DecimalMin(value = "0.01")
         BigDecimal amount
 ) {

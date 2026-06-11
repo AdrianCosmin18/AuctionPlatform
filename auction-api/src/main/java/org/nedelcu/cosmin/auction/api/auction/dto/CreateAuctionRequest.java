@@ -65,9 +65,6 @@ public record CreateAuctionRequest(
         @Min(1)
         Integer antiSnipingExtendSec,
 
-        @NotNull
-        Long createdBy,
-
         @Size(max = 5)
         List<@NotBlank @Pattern(regexp = "^https?://.+", message = "Image URL must start with http:// or https://") String> imageUrls
 ) {

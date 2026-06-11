@@ -38,6 +38,7 @@ import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
 import org.nedelcu.cosmin.auction.shared.event.AuctionExtendedEvent;
+import org.nedelcu.cosmin.auction.shared.event.AuctionStartedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionSuspendedEvent;
 import org.nedelcu.cosmin.auction.shared.event.BidPlacedEvent;
 
@@ -137,9 +138,8 @@ class AuctionServiceTest {
                 endTime,
                 30,
                 30,
-                1L,
                 List.of("https://img.test/sony-front.jpg", "https://img.test/sony-back.jpg")
-        ));
+        ), 1L);
 
         verify(auctionImageRepository).saveAll(auctionImagesCaptor.capture());
         assertThat(auctionImagesCaptor.getValue()).hasSize(2);
@@ -175,9 +175,8 @@ class AuctionServiceTest {
                 endTime,
                 30,
                 30,
-                1L,
                 List.of()
-        )))
+        ), 1L))
                 .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
                 .hasMessageContaining("Unsupported subcategory");
     }
@@ -204,9 +203,8 @@ class AuctionServiceTest {
                 endTime,
                 30,
                 30,
-                1L,
                 List.of()
-        )))
+        ), 1L))
                 .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
                 .hasMessageContaining("Reserve price must be greater than or equal to the opening price");
     }
@@ -220,6 +218,7 @@ class AuctionServiceTest {
         auction.setId(auctionId);
         auction.setStatus(AuctionStatus.DRAFT);
         auction.setCreatedAt(OffsetDateTime.now().minusDays(1));
+        auction.setCreatedBy(5L);
 
         when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
         when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -243,9 +242,8 @@ class AuctionServiceTest {
                 endTime,
                 120,
                 45,
-                5L,
                 List.of("https://img.test/new-image.jpg")
-        ));
+        ), 5L);
 
         verify(auctionImageRepository).saveAll(auctionImagesCaptor.capture());
         assertThat(auctionImagesCaptor.getValue()).hasSize(1);
@@ -261,6 +259,7 @@ class AuctionServiceTest {
         AuctionEntity auction = new AuctionEntity();
         auction.setId(auctionId);
         auction.setStatus(AuctionStatus.RUNNING);
+        auction.setCreatedBy(1L);
 
         when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
 
@@ -282,9 +281,8 @@ class AuctionServiceTest {
                 OffsetDateTime.now().plusHours(1),
                 30,
                 30,
-                1L,
                 List.of()
-        )))
+        ), 1L))
                 .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
                 .hasMessageContaining("Only DRAFT auctions can be edited");
     }
@@ -306,6 +304,21 @@ class AuctionServiceTest {
         verify(auctionWatchlistRepository).save(any(AuctionWatchlistEntity.class));
         assertThat(response.watchersCount()).isEqualTo(1L);
         assertThat(response.watchedByCurrentUser()).isTrue();
+    }
+
+    @Test
+    void watchAuctionRejectsOwnAuction() {
+        Long auctionId = 611L;
+        Long userId = 2L;
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(auctionId);
+        auction.setCreatedBy(userId);
+
+        when(auctionRepository.findById(auctionId)).thenReturn(Optional.of(auction));
+
+        assertThatThrownBy(() -> auctionService.watchAuction(auctionId, userId))
+                .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
+                .hasMessageContaining("You cannot watch your own auction");
     }
 
     @Test
@@ -422,7 +435,8 @@ class AuctionServiceTest {
 
         BidResponse response = auctionService.placeBid(
                 auctionId,
-                new PlaceBidRequest(200L, new BigDecimal("125.00"))
+                new PlaceBidRequest(new BigDecimal("125.00")),
+                200L
         );
 
         assertThat(response.id()).isEqualTo(55L);
@@ -449,10 +463,61 @@ class AuctionServiceTest {
     }
 
     @Test
+    void placeBidRejectsWhenUserIsAlreadyHighestBidder() {
+        Long auctionId = 101L;
+        Long userId = 200L;
+
+        AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusMinutes(5), 15, 30);
+        BidEntity topBid = new BidEntity();
+        topBid.setId(501L);
+        topBid.setAuctionId(auctionId);
+        topBid.setBidderId(userId);
+        topBid.setAmount(new BigDecimal("120.00"));
+
+        when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
+        when(bidRepository.findTopByAuctionIdOrderByAmountDescCreatedAtAscIdAsc(auctionId)).thenReturn(Optional.of(topBid));
+
+        assertThatThrownBy(() -> auctionService.placeBid(
+                auctionId,
+                new PlaceBidRequest(new BigDecimal("125.00")),
+                userId
+        ))
+                .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
+                .hasMessageContaining("highest bidder");
+    }
+
+    @Test
+    void startPublishesStartedEventToOutboxAndRealtimeChannel() {
+        Long auctionId = 15L;
+        AuctionEntity auction = new AuctionEntity();
+        auction.setId(auctionId);
+        auction.setStatus(AuctionStatus.DRAFT);
+        auction.setCreatedBy(1L);
+        auction.setEndTime(OffsetDateTime.now().plusHours(1));
+
+        when(auctionRepository.findById(auctionId)).thenReturn(Optional.of(auction));
+        when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuctionResponse response = auctionService.start(auctionId, 1L);
+
+        assertThat(response.status()).isEqualTo(AuctionStatus.RUNNING);
+        assertThat(response.startTime()).isNotNull();
+
+        verify(outboxService).saveEvent(any(), any(), any(), outboxPayloadCaptor.capture());
+        assertThat(outboxPayloadCaptor.getValue()).isInstanceOf(AuctionStartedEvent.class);
+
+        verify(auctionEventBroadcaster).broadcastToAuction(any(), realtimePayloadCaptor.capture());
+        AuctionRealtimeEvent<?> realtimeEvent = (AuctionRealtimeEvent<?>) realtimePayloadCaptor.getValue();
+        assertThat(realtimeEvent.type()).isEqualTo(AuctionEventType.AUCTION_STARTED.name());
+        assertThat(realtimeEvent.payload()).isInstanceOf(AuctionStartedEvent.class);
+    }
+
+    @Test
     void closePublishesClosedEventToOutboxAndRealtimeChannel() {
         Long auctionId = 20L;
         AuctionEntity auction = runningAuction(auctionId, OffsetDateTime.now().plusMinutes(1), 30, 30);
         auction.setCurrentPrice(new BigDecimal("310.00"));
+        auction.setCreatedBy(1L);
         BidEntity winningBid = new BidEntity();
         winningBid.setId(77L);
         winningBid.setAuctionId(auctionId);
@@ -464,7 +529,7 @@ class AuctionServiceTest {
                 .thenReturn(Optional.of(winningBid));
         when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuctionResponse response = auctionService.close(auctionId);
+        AuctionResponse response = auctionService.close(auctionId, 1L);
 
         assertThat(response.status()).isEqualTo(AuctionStatus.ENDED);
         assertThat(response.winnerId()).isEqualTo(901L);
@@ -517,6 +582,7 @@ class AuctionServiceTest {
         auction.setCurrentPrice(new BigDecimal("220.00"));
         auction.setReservePrice(new BigDecimal("300.00"));
         auction.setReserveMet(false);
+        auction.setCreatedBy(1L);
 
         BidEntity topBid = new BidEntity();
         topBid.setId(88L);
@@ -529,7 +595,7 @@ class AuctionServiceTest {
                 .thenReturn(Optional.of(topBid));
         when(auctionRepository.save(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        AuctionResponse response = auctionService.close(auctionId);
+        AuctionResponse response = auctionService.close(auctionId, 1L);
 
         assertThat(response.status()).isEqualTo(AuctionStatus.ENDED);
         assertThat(response.winnerId()).isNull();
@@ -566,9 +632,8 @@ class AuctionServiceTest {
                 endTime,
                 30,
                 30,
-                1L,
                 List.of()
-        )))
+        ), 1L))
                 .isInstanceOf(org.nedelcu.cosmin.auction.api.common.exception.BusinessException.class)
                 .hasMessageContaining("Buy Now price must be greater than the opening price");
     }

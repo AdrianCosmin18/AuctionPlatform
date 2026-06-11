@@ -21,22 +21,31 @@
             <span class="status-dot"></span>
             <span>Live marketplace</span>
           </div>
-          <a pButton routerLink="/auctions" icon="pi pi-home" label="Browse Auctions" severity="contrast"></a>
-          <a pButton routerLink="/dashboard" icon="pi pi-chart-bar" label="Dashboard" severity="secondary" [text]="true"></a>
-          <a pButton routerLink="/fraud-signals" icon="pi pi-shield" label="Fraud Signals" severity="secondary" [text]="true"></a>
-          <a pButton routerLink="/my-auctions" icon="pi pi-briefcase" label="My Area" severity="secondary" [text]="true"></a>
-          <a pButton routerLink="/notifications" severity="secondary" [text]="true" styleClass="notifications-link">
-            <span class="notifications-link__content">
-              <i class="pi pi-bell"></i>
-              <span>Notifications</span>
-              @if (unreadCount$ | async; as unreadCount) {
-                @if (unreadCount > 0) {
-                  <span class="notifications-badge">{{ unreadCount }}</span>
+          @if (currentUser$ | async; as currentUser) {
+            <a pButton routerLink="/auctions" icon="pi pi-home" label="Browse Auctions" severity="contrast"></a>
+            @if (currentUser.role === 'ADMIN') {
+              <a pButton routerLink="/dashboard" icon="pi pi-chart-bar" label="Dashboard" severity="secondary" [text]="true"></a>
+              <a pButton routerLink="/fraud-signals" icon="pi pi-shield" label="Fraud Signals" severity="secondary" [text]="true"></a>
+            }
+            <a pButton routerLink="/my-auctions" icon="pi pi-briefcase" label="My Area" severity="secondary" [text]="true"></a>
+            <a pButton routerLink="/notifications" severity="secondary" [text]="true" styleClass="notifications-link">
+              <span class="notifications-link__content">
+                <i class="pi pi-bell"></i>
+                <span>Notifications</span>
+                @if (unreadCount$ | async; as unreadCount) {
+                  @if (unreadCount > 0) {
+                    <span class="notifications-badge">{{ unreadCount }}</span>
+                  }
                 }
-              }
-            </span>
-          </a>
-          <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="List an Item" severity="secondary" [outlined]="true"></a>
+              </span>
+            </a>
+            <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="List an Item" severity="secondary" [outlined]="true"></a>
+            <span class="user-chip">{{ currentUser.email }}</span>
+            <p-button icon="pi pi-sign-out" label="Logout" severity="secondary" [outlined]="true" (onClick)="logout()" />
+          } @else {
+            <a pButton routerLink="/login" icon="pi pi-sign-in" label="Sign in" severity="contrast"></a>
+            <a pButton routerLink="/register" icon="pi pi-user-plus" label="Register" severity="secondary" [outlined]="true"></a>
+          }
         </div>
       </ng-template>
     </p-toolbar>

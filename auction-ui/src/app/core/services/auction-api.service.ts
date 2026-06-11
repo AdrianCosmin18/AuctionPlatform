@@ -13,29 +13,19 @@ import { SuspendAuctionRequest } from '../models/suspend-auction-request.model';
   providedIn: 'root'
 })
 export class AuctionApiService {
-  private static readonly CURRENT_USER_ID = 2;
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiBaseUrl}/auctions`;
-  private readonly userAwareOptions = {
-    headers: {
-      'X-User-Id': String(AuctionApiService.CURRENT_USER_ID)
-    }
-  };
-
-  getCurrentUserId(): number {
-    return AuctionApiService.CURRENT_USER_ID;
-  }
 
   getAuctions(): Observable<Auction[]> {
-    return this.http.get<Auction[]>(this.baseUrl, this.userAwareOptions);
+    return this.http.get<Auction[]>(this.baseUrl);
   }
 
   getAuction(id: number): Observable<Auction> {
-    return this.http.get<Auction>(`${this.baseUrl}/${id}`, this.userAwareOptions);
+    return this.http.get<Auction>(`${this.baseUrl}/${id}`);
   }
 
   createAuction(request: CreateAuctionRequest): Observable<Auction> {
-    return this.http.post<Auction>(this.baseUrl, request, this.userAwareOptions);
+    return this.http.post<Auction>(this.baseUrl, request);
   }
 
   createAuctionWithImages(request: CreateAuctionRequest, files: File[]): Observable<Auction> {
@@ -46,11 +36,11 @@ export class AuctionApiService {
       formData.append('images', file, file.name);
     }
 
-    return this.http.post<Auction>(this.baseUrl, formData, this.userAwareOptions);
+    return this.http.post<Auction>(this.baseUrl, formData);
   }
 
   updateAuction(id: number, request: CreateAuctionRequest): Observable<Auction> {
-    return this.http.put<Auction>(`${this.baseUrl}/${id}`, request, this.userAwareOptions);
+    return this.http.put<Auction>(`${this.baseUrl}/${id}`, request);
   }
 
   updateAuctionWithImages(id: number, request: CreateAuctionRequest, files: File[]): Observable<Auction> {
@@ -61,43 +51,43 @@ export class AuctionApiService {
       formData.append('images', file, file.name);
     }
 
-    return this.http.put<Auction>(`${this.baseUrl}/${id}`, formData, this.userAwareOptions);
+    return this.http.put<Auction>(`${this.baseUrl}/${id}`, formData);
   }
 
   startAuction(id: number): Observable<Auction> {
-    return this.http.post<Auction>(`${this.baseUrl}/${id}/start`, {}, this.userAwareOptions);
+    return this.http.post<Auction>(`${this.baseUrl}/${id}/start`, {});
   }
 
   closeAuction(id: number): Observable<Auction> {
-    return this.http.post<Auction>(`${this.baseUrl}/${id}/close`, {}, this.userAwareOptions);
+    return this.http.post<Auction>(`${this.baseUrl}/${id}/close`, {});
   }
 
   buyNowAuction(id: number): Observable<Auction> {
-    return this.http.post<Auction>(`${this.baseUrl}/${id}/buy-now`, {}, this.userAwareOptions);
+    return this.http.post<Auction>(`${this.baseUrl}/${id}/buy-now`, {});
   }
 
   suspendAuction(id: number, request: SuspendAuctionRequest): Observable<Auction> {
-    return this.http.post<Auction>(`${environment.apiBaseUrl}/admin/auctions/${id}/suspend`, request, this.userAwareOptions);
+    return this.http.post<Auction>(`${environment.apiBaseUrl}/admin/auctions/${id}/suspend`, request);
   }
 
   watchAuction(id: number): Observable<Auction> {
-    return this.http.post<Auction>(`${this.baseUrl}/${id}/watch`, {}, this.userAwareOptions);
+    return this.http.post<Auction>(`${this.baseUrl}/${id}/watch`, {});
   }
 
   unwatchAuction(id: number): Observable<Auction> {
-    return this.http.delete<Auction>(`${this.baseUrl}/${id}/watch`, this.userAwareOptions);
+    return this.http.delete<Auction>(`${this.baseUrl}/${id}/watch`);
   }
 
   getMyWatchlist(): Observable<Auction[]> {
-    return this.http.get<Auction[]>(`${this.baseUrl}/me/watchlist`, this.userAwareOptions);
+    return this.http.get<Auction[]>(`${this.baseUrl}/me/watchlist`);
   }
 
   getMyAuctions(): Observable<Auction[]> {
-    return this.http.get<Auction[]>(`${this.baseUrl}/me/created`, this.userAwareOptions);
+    return this.http.get<Auction[]>(`${this.baseUrl}/me/created`);
   }
 
   getMyBids(): Observable<MyBidAuction[]> {
-    return this.http.get<MyBidAuction[]>(`${this.baseUrl}/me/bids`, this.userAwareOptions);
+    return this.http.get<MyBidAuction[]>(`${this.baseUrl}/me/bids`);
   }
 
   getBids(auctionId: number): Observable<Bid[]> {
