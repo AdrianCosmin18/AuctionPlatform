@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
+import org.nedelcu.cosmin.auction.api.auction.model.AuctionStatus;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
 import org.nedelcu.cosmin.auction.api.auction.repository.AuctionRepository;
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
@@ -64,6 +65,10 @@ class FraudDetectionServiceTest {
         assertThat(response.signals())
                 .extracting(signal -> signal.type())
                 .containsExactlyInAnyOrder(FraudSignalType.BURST_BIDDING, FraudSignalType.SELLER_BIDDER_CONCENTRATION);
+
+        assertThat(response.signals())
+                .filteredOn(signal -> signal.auctionId() != null)
+                .allMatch(signal -> signal.auctionStatus() == AuctionStatus.RUNNING);
     }
 
     @Test
@@ -110,6 +115,7 @@ class FraudDetectionServiceTest {
         AuctionEntity auction = new AuctionEntity();
         auction.setId(auctionId);
         auction.setCreatedBy(sellerId);
+        auction.setStatus(AuctionStatus.RUNNING);
         return auction;
     }
 

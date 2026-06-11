@@ -1,0 +1,228 @@
+@if (loading && !auction) {
+  <div class="loading-state">
+    <p-progressSpinner strokeWidth="4" />
+  </div>
+} @else if (auction) {
+  <div class="details-view" [class.details-view--dialog]="insideDialog">
+    <div class="details-view__header">
+      <div>
+        <div class="section-kicker">Curated lot</div>
+        <h2 class="details-view__title">{{ auction.title }}</h2>
+        <p class="details-view__subtitle">Catalog metadata, pricing state, and recorded bidding activity.</p>
+      </div>
+      <div class="details-view__tags">
+        <p-tag [value]="auction.status" [severity]="statusSeverity(auction.status)" />
+        @if (reserveStatusLabel(auction); as reserveLabel) {
+          <p-tag [value]="reserveLabel" [severity]="reserveStatusSeverity(auction)" />
+        }
+      </div>
+    </div>
+
+    @if (auction.images.length > 0) {
+      <div class="gallery-panel">
+        <p-galleria
+          [value]="auction.images"
+          [(activeIndex)]="selectedImageIndex"
+          [showItemNavigators]="auction.images.length > 1"
+          [showThumbnailNavigators]="auction.images.length > 1"
+          [showIndicators]="false"
+          [showThumbnails]="auction.images.length > 1"
+          [circular]="auction.images.length > 1"
+          [numVisible]="5"
+          [responsiveOptions]="galleryResponsiveOptions"
+          styleClass="auction-gallery">
+          <ng-template pTemplate="item" let-image>
+            <div class="gallery-panel__hero">
+              <img [src]="imageSrc(image.imageUrl)" [alt]="auction.title" />
+            </div>
+          </ng-template>
+          <ng-template pTemplate="thumbnail" let-image let-index="index">
+            <div class="gallery-thumb">
+              <img [src]="imageSrc(image.imageUrl)" [alt]="auction.title + ' image ' + (index + 1)" />
+            </div>
+          </ng-template>
+        </p-galleria>
+        <p-divider />
+      </div>
+    }
+
+    <div class="auction-meta-grid">
+      <div>
+        <span class="meta-label">Category</span>
+        <div class="meta-value">{{ categoryLabel(auction.categoryCode) }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Subcategory</span>
+        <div class="meta-value">{{ subcategoryLabel(auction) ?? '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Author / creator</span>
+        <div class="meta-value">{{ auction.creatorAuthor ?? '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Estimated year</span>
+        <div class="meta-value">{{ auction.estimatedYear ?? '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Language</span>
+        <div class="meta-value">{{ auction.languageCode ?? '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Condition</span>
+        <div class="meta-value">{{ itemConditionLabel(auction.itemCondition) ?? '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Authenticity</span>
+        <div class="meta-value">{{ authenticityLabel(auction.authenticityStatus) ?? '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Auction ID</span>
+        <div class="meta-value">#{{ auction.id }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Current price</span>
+        <div class="meta-value">{{ auction.currentPrice | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Minimum increment</span>
+        <div class="meta-value">{{ auction.minIncrement | currency: 'EUR' : 'symbol' : '1.2-2' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Reserve price</span>
+        <div class="meta-value">
+          {{ auction.reservePrice !== null ? (auction.reservePrice | currency: 'EUR' : 'symbol' : '1.2-2') : 'No reserve' }}
+        </div>
+      </div>
+      <div>
+        <span class="meta-label">Buy Now price</span>
+        <div class="meta-value">
+          {{ auction.buyNowPrice !== null ? (auction.buyNowPrice | currency: 'EUR' : 'symbol' : '1.2-2') : 'Not available' }}
+        </div>
+      </div>
+      <div>
+        <span class="meta-label">Reserve status</span>
+        <div class="meta-value">{{ reserveStatusLabel(auction) ?? 'Not applicable' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Ends at</span>
+        <div class="meta-value">{{ auction.endTime ? (auction.endTime | date: 'medium') : '-' }}</div>
+        <span class="meta-label mt-2">Time remaining</span>
+        @if (remainingTime(auction); as timeLeft) {
+          <div class="meta-value countdown" [class.countdown--expired]="timeLeft.expired">
+            @if (timeLeft.days > 0) {
+              <span>{{ timeLeft.days }}d </span>
+            }
+            <span>{{ timeLeft.hours }}h {{ timeLeft.minutes }}m {{ timeLeft.seconds }}s</span>
+          </div>
+        } @else {
+          <div class="meta-value">-</div>
+        }
+      </div>
+      <div>
+        <span class="meta-label">Start time</span>
+        <div class="meta-value">{{ auction.startTime ? (auction.startTime | date: 'medium') : '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Anti-sniping</span>
+        <div class="meta-value">{{ auction.antiSnipingWindowSec ?? 0 }}s / {{ auction.antiSnipingExtendSec ?? 0 }}s</div>
+      </div>
+      <div>
+        <span class="meta-label">Watchers</span>
+        <div class="meta-value">{{ auction.watchersCount }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Winner</span>
+        <div class="meta-value">{{ auction.winnerId ? ('#' + auction.winnerId) : 'No winner yet' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Final price</span>
+        <div class="meta-value">
+          {{ auction.finalPrice !== null ? (auction.finalPrice | currency: 'EUR' : 'symbol' : '1.2-2') : '-' }}
+        </div>
+      </div>
+      <div>
+        <span class="meta-label">Closed at</span>
+        <div class="meta-value">{{ auction.closedAt ? (auction.closedAt | date: 'medium') : '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Close reason</span>
+        <div class="meta-value">{{ closeReasonLabel(auction.closedReason) }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Suspended at</span>
+        <div class="meta-value">{{ auction.suspendedAt ? (auction.suspendedAt | date: 'medium') : '-' }}</div>
+      </div>
+      <div>
+        <span class="meta-label">Suspended by</span>
+        <div class="meta-value">{{ auction.suspendedBy ? ('#' + auction.suspendedBy) : '-' }}</div>
+      </div>
+    </div>
+
+    @if (auction.description) {
+      <p-divider />
+      <p class="mb-0 description-copy">{{ auction.description }}</p>
+    }
+
+    @if (auction.provenance) {
+      <p-divider />
+      <div class="provenance-panel">
+        <span class="meta-label">Provenance</span>
+        <p class="mb-0 description-copy">{{ auction.provenance }}</p>
+      </div>
+    }
+
+    @if (auction.status === 'ENDED') {
+      <p-divider />
+      <p-message
+        severity="info"
+        [text]="
+          auction.reserveMet === false
+            ? 'Auction ended without meeting the reserve price.'
+            : auction.winnerId
+            ? 'Auction ended. Winner: #' + auction.winnerId + '.'
+            : 'Auction ended without a winning bid.'
+        "
+      />
+    }
+
+    @if (auction.status === 'SUSPENDED') {
+      <p-divider />
+      <p-message severity="error" [text]="suspensionLabel(auction) ?? 'This auction was suspended by an administrator.'" />
+    }
+
+    <p-divider />
+
+    <div class="bid-history">
+      <h3 class="bid-history__title">Bid history</h3>
+      <p-table [value]="bids" responsiveLayout="scroll">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Bidder</th>
+            <th>Amount</th>
+            <th>Created at</th>
+            <th>Extended</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-bid>
+          <tr>
+            <td>#{{ bid.bidderId }}</td>
+            <td>{{ bid.amount | currency: 'EUR' : 'symbol' : '1.2-2' }}</td>
+            <td>{{ bid.createdAt | date: 'medium' }}</td>
+            <td>
+              @if (bid.auctionExtended) {
+                <p-tag value="Yes" severity="success" />
+              } @else {
+                <span class="text-body-secondary">No</span>
+              }
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="4" class="text-center py-4 text-body-secondary">No bids have been recorded for this auction yet.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+}

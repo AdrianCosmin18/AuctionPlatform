@@ -74,6 +74,21 @@
   margin-bottom: 1rem;
 }
 
+.table-toolbar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .signal-type {
   font-weight: 700;
   color: #0f172a;
@@ -90,6 +105,24 @@
   color: #64748b;
   font-size: 0.88rem;
   margin-top: 0.3rem;
+}
+
+.action-stack {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  width: 11rem;
+}
+
+.action-stack :is(.p-button, .action-button) {
+  width: 100%;
+}
+
+.action-hint {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #64748b;
 }
 
 .suspend-dialog {
@@ -110,5 +143,13 @@
 
   .risk-overview {
     grid-template-columns: 1fr;
+  }
+
+  .table-toolbar {
+    align-items: stretch;
+  }
+
+  .table-toolbar__actions {
+    justify-content: flex-start;
   }
 }

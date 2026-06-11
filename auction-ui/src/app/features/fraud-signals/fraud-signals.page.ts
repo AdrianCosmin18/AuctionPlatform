@@ -12,10 +12,14 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
-import { finalize } from 'rxjs';
+import { finalize, forkJoin } from 'rxjs';
+import { Auction } from '../../core/models/auction.model';
+import { AuctionStatus } from '../../core/models/auction-status.type';
+import { Bid } from '../../core/models/bid.model';
 import { FraudOverview, FraudSeverity, FraudSignal, FraudSignalType } from '../../core/models/fraud-overview.model';
 import { AuctionApiService } from '../../core/services/auction-api.service';
 import { FraudApiService } from '../../core/services/fraud-api.service';
+import { AuctionDetailsViewComponent } from '../auction-details/auction-details-view.component';
 
 @Component({
   selector: 'app-fraud-signals-page',
@@ -33,12 +37,19 @@ import { FraudApiService } from '../../core/services/fraud-api.service';
     TableModule,
     TagModule,
     ToastModule,
-    DatePipe
+    DatePipe,
+    AuctionDetailsViewComponent
   ],
   templateUrl: './fraud-signals.page.html',
   styleUrl: './fraud-signals.page.scss'
 })
 export class FraudSignalsPageComponent implements OnInit {
+  readonly filterOptions = [
+    { key: 'actionable', label: 'Actionable' },
+    { key: 'all', label: 'All' },
+    { key: 'inactive', label: 'Inactive' }
+  ] as const;
+
   private readonly fraudApi = inject(FraudApiService);
   private readonly auctionApi = inject(AuctionApiService);
   private readonly messageService = inject(MessageService);
@@ -48,8 +59,13 @@ export class FraudSignalsPageComponent implements OnInit {
   suspendLoading = false;
   errorMessage: string | null = null;
   suspendDialogVisible = false;
+  auctionPreviewVisible = false;
+  auctionPreviewLoading = false;
   suspendReason = '';
   selectedSignal: FraudSignal | null = null;
+  previewAuction: Auction | null = null;
+  previewBids: Bid[] = [];
+  activeFilter: 'all' | 'actionable' | 'inactive' = 'actionable';
   private readonly suspendedAuctionIds = new Set<number>();
 
   ngOnInit(): void {
@@ -152,7 +168,97 @@ export class FraudSignalsPageComponent implements OnInit {
   }
 
   canSuspend(signal: FraudSignal): boolean {
-    return !!signal.auctionId && !this.suspendedAuctionIds.has(signal.auctionId);
+    return !!signal.auctionId && signal.auctionStatus === 'RUNNING' && !this.suspendedAuctionIds.has(signal.auctionId);
+  }
+
+  isActionable(signal: FraudSignal): boolean {
+    return signal.auctionStatus === 'RUNNING' && this.canSuspend(signal);
+  }
+
+  filteredSignals(): FraudSignal[] {
+    const signals = this.overview?.signals ?? [];
+    return signals.filter((signal) => this.matchesFilter(signal));
+  }
+
+  setFilter(filter: 'all' | 'actionable' | 'inactive'): void {
+    this.activeFilter = filter;
+  }
+
+  statusLabel(signal: FraudSignal): string {
+    if (signal.auctionStatus) {
+      return signal.auctionStatus;
+    }
+
+    return signal.auctionId ? 'UNKNOWN' : 'MULTI';
+  }
+
+  statusSeverity(status: AuctionStatus | null): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+    switch (status) {
+      case 'RUNNING':
+        return 'success';
+      case 'DRAFT':
+        return 'warn';
+      case 'SUSPENDED':
+        return 'danger';
+      case 'ENDED':
+        return 'secondary';
+      case 'CANCELLED':
+        return 'danger';
+      default:
+        return 'contrast';
+    }
+  }
+
+  filterCount(filter: 'all' | 'actionable' | 'inactive'): number {
+    const signals = this.overview?.signals ?? [];
+    return signals.filter((signal) => this.matchesFilter(signal, filter)).length;
+  }
+
+  private matchesFilter(signal: FraudSignal, filter = this.activeFilter): boolean {
+    switch (filter) {
+      case 'actionable':
+        return this.canSuspend(signal);
+      case 'inactive':
+        return !this.canSuspend(signal);
+      case 'all':
+      default:
+        return true;
+    }
+  }
+
+  openAuctionPreview(signal: FraudSignal): void {
+    if (!signal.auctionId) {
+      return;
+    }
+
+    this.previewAuction = null;
+    this.previewBids = [];
+    this.auctionPreviewVisible = true;
+    this.auctionPreviewLoading = true;
+    this.errorMessage = null;
+
+    forkJoin({
+      auction: this.auctionApi.getAuction(signal.auctionId),
+      bids: this.auctionApi.getBids(signal.auctionId)
+    })
+      .pipe(finalize(() => (this.auctionPreviewLoading = false)))
+      .subscribe({
+        next: ({ auction, bids }) => {
+          this.previewAuction = auction;
+          this.previewBids = bids;
+        },
+        error: (error) => {
+          this.errorMessage = error?.error?.detail ?? 'Unable to load the selected auction.';
+          this.auctionPreviewVisible = false;
+        }
+      });
+  }
+
+  closeAuctionPreview(): void {
+    this.auctionPreviewVisible = false;
+    this.previewAuction = null;
+    this.previewBids = [];
+    this.auctionPreviewLoading = false;
   }
 
   openSuspendDialog(signal: FraudSignal): void {

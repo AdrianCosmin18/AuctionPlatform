@@ -79,6 +79,7 @@ public class FraudDetectionService {
                     FraudSignalType.BURST_BIDDING,
                     severity,
                     anchorBid.getAuctionId(),
+                    auction != null ? auction.getStatus() : null,
                     auction != null ? auction.getCreatedBy() : null,
                     anchorBid.getBidderId(),
                     strongestWindow.bidCount,
@@ -179,6 +180,7 @@ public class FraudDetectionService {
             signals.add(new FraudSignalResponse(
                     FraudSignalType.SELLER_BIDDER_CONCENTRATION,
                     severity,
+                    null,
                     null,
                     metrics.sellerId,
                     metrics.bidderId,

@@ -40,16 +40,32 @@
           <strong>{{ overview.totalSignals }}</strong>
           <span> signals detected</span>
         </div>
-        <p-tag value="Read-only review" severity="contrast" />
+        <div class="table-toolbar__actions">
+          <div class="filter-group">
+            @for (option of filterOptions; track option.key) {
+              <p-button
+                [label]="option.label + ' (' + filterCount(option.key) + ')'"
+                [severity]="activeFilter === option.key ? 'contrast' : 'secondary'"
+                [outlined]="activeFilter !== option.key"
+                size="small"
+                (onClick)="setFilter(option.key)"
+              />
+            }
+          </div>
+          <p-tag
+            [value]="activeFilter === 'actionable' ? 'Active auctions only' : activeFilter === 'inactive' ? 'Inactive or review-only' : 'All signals'"
+            severity="contrast" />
+        </div>
       </div>
 
-      @if (overview.signals.length > 0) {
-        <p-table [value]="overview.signals" responsiveLayout="scroll">
+      @if (filteredSignals().length > 0) {
+        <p-table [value]="filteredSignals()" responsiveLayout="scroll">
           <ng-template pTemplate="header">
             <tr>
               <th>Severity</th>
               <th>Pattern</th>
               <th>Target</th>
+              <th>Status</th>
               <th>Activity</th>
               <th>Window</th>
               <th>Last seen</th>
@@ -77,6 +93,9 @@
                 </div>
               </td>
               <td>
+                <p-tag [value]="statusLabel(signal)" [severity]="statusSeverity(signal.auctionStatus)" />
+              </td>
+              <td>
                 <div class="signal-copy">{{ signal.details }}</div>
                 <div class="signal-meta">
                   <span>{{ signal.relatedBidCount }} bids</span>
@@ -94,14 +113,29 @@
               </td>
               <td>{{ signal.lastSeenAt | date: 'MMM d, y, h:mm a' }}</td>
               <td>
-                @if (canSuspend(signal)) {
-                  <p-button
-                    icon="pi pi-ban"
-                    label="Suspend auction"
-                    severity="danger"
-                    [outlined]="true"
-                    (onClick)="openSuspendDialog(signal)"
-                  />
+                @if (signal.auctionId) {
+                  <div class="action-stack">
+                    <p-button
+                      icon="pi pi-eye"
+                      label="View auction"
+                      severity="secondary"
+                      [outlined]="true"
+                      styleClass="action-button"
+                      (onClick)="openAuctionPreview(signal)"
+                    />
+                    @if (canSuspend(signal)) {
+                      <p-button
+                        icon="pi pi-ban"
+                        label="Suspend auction"
+                        severity="danger"
+                        [outlined]="true"
+                        styleClass="action-button"
+                        (onClick)="openSuspendDialog(signal)"
+                      />
+                    } @else {
+                      <span class="action-hint">Only running auctions can be suspended</span>
+                    }
+                  </div>
                 } @else {
                   <span class="text-body-secondary">No direct action</span>
                 }
@@ -112,8 +146,8 @@
       } @else {
         <div class="empty-state">
           <i class="pi pi-shield"></i>
-          <h3>No suspicious signals right now</h3>
-          <p>The current bid history does not cross the defined fraud thresholds.</p>
+          <h3>No signals match this filter</h3>
+          <p>Try another view to inspect inactive or cross-auction fraud patterns.</p>
         </div>
       }
     </p-card>
@@ -151,5 +185,22 @@
         <p-button label="Suspend auction" severity="danger" [loading]="suspendLoading" (onClick)="suspendSelectedAuction()" />
       </div>
     </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    header="Auction details"
+    [(visible)]="auctionPreviewVisible"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [maximizable]="true"
+    [style]="{ width: '78rem', maxWidth: '96vw' }"
+    (onHide)="closeAuctionPreview()">
+    <app-auction-details-view
+      [auction]="previewAuction"
+      [bids]="previewBids"
+      [loading]="auctionPreviewLoading"
+      [insideDialog]="true"
+    />
   </p-dialog>
 </section>

@@ -10,12 +10,9 @@ import { DividerModule } from 'primeng/divider';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { BehaviorSubject, Subject, Subscription, combineLatest, finalize, forkJoin, map, takeUntil, timer } from 'rxjs';
-import { AUTHENTICITY_STATUSES, ITEM_CONDITIONS, findCategoryByCode, findOptionLabel } from '../../core/constants/auction-taxonomy';
-import { environment } from '../../../environments/environment';
 import { AuctionBusinessEvent, AuctionClosedEvent, AuctionExtendedEvent, AuctionSuspendedEvent, BidPlacedEvent } from '../../core/models/auction-business-events.model';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionRealtimeEvent } from '../../core/models/auction-realtime-event.model';
@@ -23,6 +20,7 @@ import { AuctionStatus } from '../../core/models/auction-status.type';
 import { Bid } from '../../core/models/bid.model';
 import { AuctionApiService } from '../../core/services/auction-api.service';
 import { AuctionWsService } from '../../core/services/auction-ws.service';
+import { AuctionDetailsViewComponent } from './auction-details-view.component';
 
 @Component({
   selector: 'app-auction-details-page',
@@ -34,14 +32,14 @@ import { AuctionWsService } from '../../core/services/auction-ws.service';
     CardModule,
     TagModule,
     ButtonModule,
-    TableModule,
     DividerModule,
     InputNumberModule,
     ProgressSpinnerModule,
     MessageModule,
     ToastModule,
     CurrencyPipe,
-    DatePipe
+    DatePipe,
+    AuctionDetailsViewComponent
   ],
   templateUrl: './auction-details.page.html',
   styleUrl: './auction-details.page.scss'
@@ -448,36 +446,6 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
     }
 
     return `Buy now for ${this.formatAmount(auction.buyNowPrice)}`;
-  }
-
-  selectImage(index: number): void {
-    this.selectedImageIndex = index;
-  }
-
-  imageSrc(imageUrl: string): string {
-    return imageUrl.startsWith('http://') || imageUrl.startsWith('https://')
-      ? imageUrl
-      : `${environment.wsBaseUrl}${imageUrl}`;
-  }
-
-  categoryLabel(code: string | null | undefined): string {
-    return findCategoryByCode(code)?.label ?? 'Uncategorized';
-  }
-
-  subcategoryLabel(auction: Auction | null): string | null {
-    if (!auction) {
-      return null;
-    }
-
-    return findCategoryByCode(auction.categoryCode)?.subcategories.find((subcategory) => subcategory.code === auction.subcategoryCode)?.label ?? null;
-  }
-
-  itemConditionLabel(code: string | null | undefined): string | null {
-    return findOptionLabel(ITEM_CONDITIONS, code);
-  }
-
-  authenticityLabel(code: string | null | undefined): string | null {
-    return findOptionLabel(AUTHENTICITY_STATUSES, code);
   }
 
   private connectToAuction(auctionId: number): void {
