@@ -1238,6 +1238,21 @@ Backlog-ul si ordinea de implementare se mentin in:
 
 - `ROADMAP.md`
 
-Urmatorul feature planificat este:
+Scope-ul functional planificat pentru MVP este considerat suficient in forma actuala.
 
-1. Reviews / Rating
+Urmatorii pasi recomandati nu mai sunt feature-uri majore, ci pasi de inchidere:
+
+1. stabilizare finala
+   - smoke test end-to-end pentru fluxurile principale
+   - verificare manuala pentru scenariile `RUNNING`, `ENDED`, `SUSPENDED`
+   - verificare notificari in-app, email si fraud modal
+2. curatare pentru livrare
+   - revizie finala a textelor din UI
+   - verificare consistentei `README.md` si `ROADMAP.md`
+   - capturi de ecran pentru lucrare / prezentare
+3. pregatire pentru sustinere
+   - definirea a 3-5 scenarii demo
+   - pregatirea unei prezentari scurte pentru arhitectura si fluxuri
+   - notarea limitelor MVP asumate explicit
+
+Feature-uri precum `Reviews / Rating` sau `Advanced bid increment rules` raman in afara scope-ului actual.
