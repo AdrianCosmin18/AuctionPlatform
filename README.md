@@ -120,6 +120,29 @@ mvn -pl auction-api spring-boot:run
 mvn -pl auction-worker spring-boot:run
 ```
 
+Pentru livrare reala de email poti porni worker-ul cu SMTP extern prin variabile de mediu. Exemplu generic:
+
+```powershell
+$env:MAIL_HOST="smtp.example.com"
+$env:MAIL_PORT="587"
+$env:MAIL_USERNAME="your-account@example.com"
+$env:MAIL_PASSWORD="your-app-password"
+$env:MAIL_SMTP_AUTH="true"
+$env:MAIL_SMTP_STARTTLS_ENABLE="true"
+$env:MAIL_SMTP_STARTTLS_REQUIRED="true"
+$env:MAIL_SMTP_SSL_ENABLE="false"
+$env:APP_MAIL_FROM="your-account@example.com"
+mvn -pl auction-worker spring-boot:run
+```
+
+Pentru servere SMTPS pe port `465`, setezi de regula:
+
+```powershell
+$env:MAIL_PORT="465"
+$env:MAIL_SMTP_STARTTLS_ENABLE="false"
+$env:MAIL_SMTP_SSL_ENABLE="true"
+```
+
 4. Porneste UI-ul:
 
 ```powershell
@@ -150,6 +173,8 @@ npm start
 
 - `http://localhost:8025`
 - SMTP local: `localhost:1025`
+
+Worker-ul foloseste implicit `MailHog` pentru dezvoltare locala. Daca setezi variabilele `MAIL_*`, aceeasi implementare poate trimite si printr-un provider SMTP real.
 
 ## Structura aplicatiei
 
@@ -215,6 +240,7 @@ Backend-ul suporta:
 - unread notifications count
 - `mark as read` si `mark all as read`
 - email notifications pentru `AUCTION_WON`, `OUTBID`, `AUCTION_CLOSED` si `AUCTION_SUSPENDED`
+- suport configurabil pentru SMTP local (`MailHog`) sau SMTP real prin variabile `MAIL_*`
 - pornire licitatie
 - inchidere licitatie
 - inchidere automata a licitatiilor expirate
@@ -366,7 +392,7 @@ Fluxul actual este:
 5. worker-ul creeaza una sau mai multe notificari in `notifications`
 6. `auction-ui` citeste notificarile prin REST si afiseaza unread badge + lista completa
 7. pentru notificari noi de tip `AUCTION_WON`, UI afiseaza si un toast global in dreapta-sus
-8. pentru tipurile eligibile, worker-ul incearca si livrarea email prin SMTP local
+8. pentru tipurile eligibile, worker-ul incearca si livrarea email prin SMTP-ul configurat
 
 Schema simplificata a fluxului:
 
@@ -676,14 +702,14 @@ Cand worker-ul creeaza o notificare eligibila pentru email:
 
 - cauta email-ul user-ului in tabela `users`
 - construieste un email simplu cu `title` + `message`
-- trimite prin SMTP local catre `MailHog`
+- trimite prin SMTP-ul configurat
 - salveaza pe notificare unul dintre statusurile:
   - `PENDING`
   - `SENT`
   - `SKIPPED`
   - `FAILED`
 
-Pentru MVP, acest flux este configurat pentru SMTP local, deci email-urile apar in `MailHog`, nu in inbox-uri reale Gmail/Yahoo.
+Implicit, acest flux este configurat pentru SMTP local, deci email-urile apar in `MailHog`. Daca setezi variabilele `MAIL_*`, aceleasi notificari pot merge catre inbox-uri reale.
 
 ### 2. Start auction
 
