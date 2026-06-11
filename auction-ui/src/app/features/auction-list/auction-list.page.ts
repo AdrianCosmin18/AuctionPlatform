@@ -19,6 +19,7 @@ import { AUTHENTICITY_STATUSES, AUCTION_CATEGORIES, ITEM_CONDITIONS, findCategor
 import { environment } from '../../../environments/environment';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionStatus } from '../../core/models/auction-status.type';
+import { AuthService } from '../../core/services/auth.service';
 import { AuctionApiService } from '../../core/services/auction-api.service';
 
 @Component({
@@ -48,6 +49,8 @@ import { AuctionApiService } from '../../core/services/auction-api.service';
 })
 export class AuctionListPageComponent implements OnInit {
   private readonly auctionApi = inject(AuctionApiService);
+  private readonly authService = inject(AuthService);
+  private readonly currentUserId = this.authService.getCurrentUserId();
 
   auctions: Auction[] = [];
   readonly categories = AUCTION_CATEGORIES;
@@ -284,6 +287,10 @@ export class AuctionListPageComponent implements OnInit {
   }
 
   toggleWatch(auction: Auction): void {
+    if (auction.createdBy === this.currentUserId) {
+      return;
+    }
+
     this.watchLoadingId = auction.id;
     this.errorMessage = null;
 
@@ -322,6 +329,10 @@ export class AuctionListPageComponent implements OnInit {
 
   private isCuratedAuction(auction: Auction): boolean {
     return !!auction.categoryCode;
+  }
+
+  isOwner(auction: Auction): boolean {
+    return auction.createdBy === this.currentUserId;
   }
 
   private auctionRank(auction: Auction): number {

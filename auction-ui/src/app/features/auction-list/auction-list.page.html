@@ -66,14 +66,16 @@
               label="View auction"
               severity="contrast"
             ></a>
-            <p-button
-              [icon]="featuredAuction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
-              [label]="featuredAuction.watchedByCurrentUser ? 'Watching' : 'Watch'"
-              severity="secondary"
-              [outlined]="!featuredAuction.watchedByCurrentUser"
-              [loading]="watchLoadingId === featuredAuction.id"
-              (onClick)="toggleWatch(featuredAuction)"
-            />
+            @if (!isOwner(featuredAuction)) {
+              <p-button
+                [icon]="featuredAuction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
+                [label]="featuredAuction.watchedByCurrentUser ? 'Watching' : 'Watch'"
+                severity="secondary"
+                [outlined]="!featuredAuction.watchedByCurrentUser"
+                [loading]="watchLoadingId === featuredAuction.id"
+                (onClick)="toggleWatch(featuredAuction)"
+              />
+            }
           </div>
         </div>
       </p-card>
@@ -222,15 +224,17 @@
 
                 <div class="auction-card__actions">
                   <a pButton [routerLink]="['/auctions', auction.id]" icon="pi pi-eye" label="View" severity="contrast"></a>
-                  <p-button
-                    [icon]="auction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
-                    [label]="auction.watchedByCurrentUser ? 'Watching' : 'Watch'"
-                    severity="secondary"
-                    [outlined]="!auction.watchedByCurrentUser"
-                    [loading]="watchLoadingId === auction.id"
-                    (onClick)="toggleWatch(auction)"
-                  />
-                  @if (auction.status === 'DRAFT') {
+                  @if (!isOwner(auction)) {
+                    <p-button
+                      [icon]="auction.watchedByCurrentUser ? 'pi pi-heart-fill' : 'pi pi-heart'"
+                      [label]="auction.watchedByCurrentUser ? 'Watching' : 'Watch'"
+                      severity="secondary"
+                      [outlined]="!auction.watchedByCurrentUser"
+                      [loading]="watchLoadingId === auction.id"
+                      (onClick)="toggleWatch(auction)"
+                    />
+                  }
+                  @if (auction.status === 'DRAFT' && isOwner(auction)) {
                     <p-button
                       icon="pi pi-play"
                       label="Start"
@@ -239,7 +243,7 @@
                       (onClick)="startAuction(auction)"
                     />
                   }
-                  @if (auction.status === 'RUNNING') {
+                  @if (auction.status === 'RUNNING' && isOwner(auction)) {
                     <p-button
                       icon="pi pi-stop"
                       label="Close"
