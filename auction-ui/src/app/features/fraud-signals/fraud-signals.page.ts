@@ -108,8 +108,8 @@ export class FraudSignalsPageComponent implements OnInit {
 
   signalTypeLabel(type: FraudSignalType): string {
     switch (type) {
-      case 'BURST_BIDDING':
-        return 'Burst bidding';
+      case 'BIDDER_PAIR_DOMINANCE':
+        return 'Bidder pair dominance';
       case 'SELLER_BIDDER_CONCENTRATION':
         return 'Seller-bidder concentration';
       default:

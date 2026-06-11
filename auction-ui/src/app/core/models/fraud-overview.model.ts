@@ -1,5 +1,5 @@
 export type FraudSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
-export type FraudSignalType = 'BURST_BIDDING' | 'SELLER_BIDDER_CONCENTRATION';
+export type FraudSignalType = 'BIDDER_PAIR_DOMINANCE' | 'SELLER_BIDDER_CONCENTRATION';
 import { AuctionStatus } from './auction-status.type';
 
 export interface FraudSignal {

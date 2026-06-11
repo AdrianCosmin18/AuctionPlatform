@@ -33,7 +33,7 @@ class FraudDetectionServiceTest {
     private FraudDetectionService fraudDetectionService;
 
     @Test
-    void getSignalsDetectsBurstBiddingAndConcentrationPatterns() {
+    void getSignalsDetectsBidderPairDominanceAndConcentrationPatterns() {
         OffsetDateTime now = OffsetDateTime.now();
 
         AuctionEntity auction10 = auction(10L, 1L);
@@ -41,15 +41,18 @@ class FraudDetectionServiceTest {
         AuctionEntity auction12 = auction(12L, 1L);
 
         List<BidEntity> bids = List.of(
-                bid(1L, 10L, 3L, now.minusMinutes(5)),
-                bid(2L, 10L, 2L, now.minusMinutes(4).minusSeconds(30)),
-                bid(3L, 10L, 2L, now.minusMinutes(4)),
-                bid(4L, 10L, 2L, now.minusMinutes(3).minusSeconds(30)),
-                bid(5L, 11L, 2L, now.minusMinutes(3)),
-                bid(6L, 11L, 2L, now.minusMinutes(2).minusSeconds(30)),
-                bid(7L, 12L, 2L, now.minusMinutes(2)),
-                bid(8L, 12L, 2L, now.minusMinutes(1).minusSeconds(30)),
-                bid(9L, 12L, 3L, now.minusMinutes(1))
+                bid(1L, 10L, 2L, now.minusMinutes(9)),
+                bid(2L, 10L, 3L, now.minusMinutes(8).minusSeconds(30)),
+                bid(3L, 10L, 2L, now.minusMinutes(8)),
+                bid(4L, 10L, 3L, now.minusMinutes(7).minusSeconds(30)),
+                bid(5L, 10L, 2L, now.minusMinutes(7)),
+                bid(6L, 10L, 3L, now.minusMinutes(6).minusSeconds(30)),
+                bid(7L, 10L, 2L, now.minusMinutes(6)),
+                bid(8L, 11L, 2L, now.minusMinutes(5).minusSeconds(30)),
+                bid(9L, 11L, 2L, now.minusMinutes(5)),
+                bid(10L, 12L, 2L, now.minusMinutes(4).minusSeconds(30)),
+                bid(11L, 12L, 2L, now.minusMinutes(4)),
+                bid(12L, 12L, 3L, now.minusMinutes(3).minusSeconds(30))
         );
 
         when(bidRepository.findAllByOrderByCreatedAtAsc()).thenReturn(bids);
@@ -58,13 +61,13 @@ class FraudDetectionServiceTest {
         FraudOverviewResponse response = fraudDetectionService.getSignals();
 
         assertThat(response.totalSignals()).isEqualTo(2);
-        assertThat(response.highSeveritySignals()).isEqualTo(0);
-        assertThat(response.mediumSeveritySignals()).isEqualTo(2);
+        assertThat(response.highSeveritySignals()).isEqualTo(1);
+        assertThat(response.mediumSeveritySignals()).isEqualTo(1);
         assertThat(response.lowSeveritySignals()).isEqualTo(0);
 
         assertThat(response.signals())
                 .extracting(signal -> signal.type())
-                .containsExactlyInAnyOrder(FraudSignalType.BURST_BIDDING, FraudSignalType.SELLER_BIDDER_CONCENTRATION);
+                .containsExactlyInAnyOrder(FraudSignalType.BIDDER_PAIR_DOMINANCE, FraudSignalType.SELLER_BIDDER_CONCENTRATION);
 
         assertThat(response.signals())
                 .filteredOn(signal -> signal.auctionId() != null)
@@ -72,16 +75,17 @@ class FraudDetectionServiceTest {
     }
 
     @Test
-    void getSignalsDoesNotFlagAlternatingBidsAsBurstBidding() {
+    void getSignalsDoesNotFlagWeakBidderPairDominance() {
         AuctionEntity auction = auction(30L, 9L);
         OffsetDateTime now = OffsetDateTime.now();
 
         List<BidEntity> bids = List.of(
                 bid(30L, 30L, 2L, now.minusMinutes(4)),
                 bid(31L, 30L, 3L, now.minusMinutes(3).minusSeconds(30)),
-                bid(32L, 30L, 2L, now.minusMinutes(3)),
-                bid(33L, 30L, 4L, now.minusMinutes(2).minusSeconds(30)),
-                bid(34L, 30L, 2L, now.minusMinutes(2))
+                bid(32L, 30L, 4L, now.minusMinutes(3)),
+                bid(33L, 30L, 2L, now.minusMinutes(2).minusSeconds(30)),
+                bid(34L, 30L, 5L, now.minusMinutes(2)),
+                bid(35L, 30L, 3L, now.minusMinutes(1).minusSeconds(30))
         );
 
         when(bidRepository.findAllByOrderByCreatedAtAsc()).thenReturn(bids);
@@ -91,7 +95,7 @@ class FraudDetectionServiceTest {
 
         assertThat(response.signals())
                 .extracting(signal -> signal.type())
-                .doesNotContain(FraudSignalType.BURST_BIDDING);
+                .doesNotContain(FraudSignalType.BIDDER_PAIR_DOMINANCE);
     }
 
     @Test

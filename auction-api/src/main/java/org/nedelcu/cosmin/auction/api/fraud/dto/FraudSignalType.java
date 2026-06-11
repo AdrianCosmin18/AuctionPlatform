@@ -1,6 +1,6 @@
 package org.nedelcu.cosmin.auction.api.fraud.dto;
 
 public enum FraudSignalType {
-    BURST_BIDDING,
+    BIDDER_PAIR_DOMINANCE,
     SELLER_BIDDER_CONCENTRATION
 }

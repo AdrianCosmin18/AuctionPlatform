@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.nedelcu.cosmin.auction.api.auction.entity.AuctionEntity;
 import org.nedelcu.cosmin.auction.api.auction.entity.BidEntity;
@@ -21,8 +22,9 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class FraudDetectionService {
-    private static final Duration BURST_WINDOW = Duration.ofMinutes(5);
-    private static final int BURST_MIN_BIDS = 3;
+    private static final int BIDDER_PAIR_MIN_BIDS = 6;
+    private static final double BIDDER_PAIR_MIN_SHARE = 0.80;
+    private static final int BIDDER_PAIR_MIN_ALTERNATIONS = 4;
     private static final int CONCENTRATION_MIN_BIDS = 5;
 
     private final BidRepository bidRepository;
@@ -34,7 +36,7 @@ public class FraudDetectionService {
                 .collect(java.util.stream.Collectors.toMap(AuctionEntity::getId, auction -> auction));
 
         List<FraudSignalResponse> signals = new ArrayList<>();
-        signals.addAll(detectBurstBidding(bids, auctionsById));
+        signals.addAll(detectBidderPairDominance(bids, auctionsById));
         signals.addAll(detectSellerBidderConcentration(bids, auctionsById));
 
         List<FraudSignalResponse> sortedSignals = signals.stream()
@@ -50,7 +52,7 @@ public class FraudDetectionService {
         return new FraudOverviewResponse(sortedSignals.size(), high, medium, low, sortedSignals);
     }
 
-    private List<FraudSignalResponse> detectBurstBidding(List<BidEntity> bids, Map<Long, AuctionEntity> auctionsById) {
+    private List<FraudSignalResponse> detectBidderPairDominance(List<BidEntity> bids, Map<Long, AuctionEntity> auctionsById) {
         Map<Long, List<BidEntity>> bidsByAuction = new HashMap<>();
 
         for (BidEntity bid : bids) {
@@ -63,72 +65,94 @@ public class FraudDetectionService {
 
         for (Map.Entry<Long, List<BidEntity>> entry : bidsByAuction.entrySet()) {
             List<BidEntity> auctionBids = entry.getValue();
-            BurstWindow strongestWindow = findStrongestBurstWindow(auctionBids);
 
-            if (strongestWindow == null || strongestWindow.bidCount < BURST_MIN_BIDS) {
+            if (auctionBids.size() < BIDDER_PAIR_MIN_BIDS) {
                 continue;
             }
 
-            BidEntity anchorBid = auctionBids.get(strongestWindow.endIndex);
-            AuctionEntity auction = auctionsById.get(anchorBid.getAuctionId());
-            FraudSeverity severity = strongestWindow.bidCount >= 4
+            Map<Long, Integer> countsByBidder = new HashMap<>();
+            for (BidEntity bid : auctionBids) {
+                countsByBidder.merge(bid.getBidderId(), 1, Integer::sum);
+            }
+
+            if (countsByBidder.size() < 2) {
+                continue;
+            }
+
+            List<Map.Entry<Long, Integer>> topBidders = countsByBidder.entrySet().stream()
+                    .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed()
+                            .thenComparing(Map.Entry.comparingByKey()))
+                    .limit(2)
+                    .toList();
+
+            long firstBidderId = topBidders.get(0).getKey();
+            int firstBidderCount = topBidders.get(0).getValue();
+            long secondBidderId = topBidders.get(1).getKey();
+            int secondBidderCount = topBidders.get(1).getValue();
+            int combinedBidCount = firstBidderCount + secondBidderCount;
+            double share = (double) combinedBidCount / auctionBids.size();
+
+            if (combinedBidCount < BIDDER_PAIR_MIN_BIDS || share < BIDDER_PAIR_MIN_SHARE) {
+                continue;
+            }
+
+            int alternations = countAlternations(auctionBids, Set.of(firstBidderId, secondBidderId));
+            if (alternations < BIDDER_PAIR_MIN_ALTERNATIONS) {
+                continue;
+            }
+
+            AuctionEntity auction = auctionsById.get(entry.getKey());
+            FraudSeverity severity = share >= 0.90 && alternations >= 6 && combinedBidCount >= 8
                     ? FraudSeverity.HIGH
-                    : FraudSeverity.MEDIUM;
+                    : share >= 0.85 && alternations >= 5 ? FraudSeverity.MEDIUM : FraudSeverity.LOW;
+            int windowSeconds = (int) Math.max(0, Duration.between(
+                    auctionBids.get(0).getCreatedAt(),
+                    auctionBids.get(auctionBids.size() - 1).getCreatedAt()
+            ).toSeconds());
 
             signals.add(new FraudSignalResponse(
-                    FraudSignalType.BURST_BIDDING,
+                    FraudSignalType.BIDDER_PAIR_DOMINANCE,
                     severity,
-                    anchorBid.getAuctionId(),
+                    entry.getKey(),
                     auction != null ? auction.getStatus() : null,
                     auction != null ? auction.getCreatedBy() : null,
-                    anchorBid.getBidderId(),
-                    strongestWindow.bidCount,
+                    firstBidderId,
+                    combinedBidCount,
                     1,
-                    (int) BURST_WINDOW.toSeconds(),
-                    "Burst bidding pattern detected",
-                    "Bidder #%d placed %d bids on auction #%d within %d minutes."
+                    windowSeconds,
+                    "Bidder pair dominance detected",
+                    "Bidders #%d and #%d placed %d of %d bids on auction #%d, with %d alternations between them."
                             .formatted(
-                                    anchorBid.getBidderId(),
-                                    strongestWindow.bidCount,
-                                    anchorBid.getAuctionId(),
-                                    BURST_WINDOW.toMinutes()
+                                    firstBidderId,
+                                    secondBidderId,
+                                    combinedBidCount,
+                                    auctionBids.size(),
+                                    entry.getKey(),
+                                    alternations
                             ),
-                    auctionBids.get(strongestWindow.startIndex).getCreatedAt(),
-                    auctionBids.get(strongestWindow.endIndex).getCreatedAt()
+                    auctionBids.get(0).getCreatedAt(),
+                    auctionBids.get(auctionBids.size() - 1).getCreatedAt()
             ));
         }
 
         return signals;
     }
 
-    private BurstWindow findStrongestBurstWindow(List<BidEntity> bids) {
-        BurstWindow strongest = null;
-        int runStart = 0;
+    private int countAlternations(List<BidEntity> bids, Set<Long> selectedBidderIds) {
+        int alternations = 0;
 
-        for (int index = 0; index < bids.size(); index++) {
-            if (index == 0) {
-                continue;
-            }
+        for (int index = 1; index < bids.size(); index++) {
+            Long previousBidderId = bids.get(index - 1).getBidderId();
+            Long currentBidderId = bids.get(index).getBidderId();
 
-            BidEntity currentBid = bids.get(index);
-            BidEntity previousBid = bids.get(index - 1);
-
-            boolean sameBidder = previousBid.getBidderId().equals(currentBid.getBidderId());
-            boolean withinWindow = Duration.between(bids.get(runStart).getCreatedAt(), currentBid.getCreatedAt()).compareTo(BURST_WINDOW) <= 0;
-
-            if (!sameBidder || !withinWindow) {
-                runStart = index;
-                continue;
-            }
-
-            int count = index - runStart + 1;
-
-            if (strongest == null || count > strongest.bidCount) {
-                strongest = new BurstWindow(runStart, index, count);
+            if (selectedBidderIds.contains(previousBidderId)
+                    && selectedBidderIds.contains(currentBidderId)
+                    && !previousBidderId.equals(currentBidderId)) {
+                alternations++;
             }
         }
 
-        return strongest;
+        return alternations;
     }
 
     private List<FraudSignalResponse> detectSellerBidderConcentration(List<BidEntity> bids, Map<Long, AuctionEntity> auctionsById) {
@@ -202,9 +226,6 @@ public class FraudDetectionService {
         }
 
         return signals;
-    }
-
-    private record BurstWindow(int startIndex, int endIndex, int bidCount) {
     }
 
     private static final class PairMetrics {

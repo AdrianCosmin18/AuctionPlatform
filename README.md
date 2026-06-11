@@ -209,7 +209,7 @@ Backend-ul suporta:
 - reserve price optional in create, edit, close summary si evenimente
 - buy now price optional in create, edit, close summary si endpoint dedicat pentru cumparare imediata
 - endpoint analytics pentru dashboard operational agregat
-- endpoint fraud pentru semnale suspecte calculate on-demand
+- endpoint fraud pentru semnale suspecte calculate on-demand (`bidder pair dominance` si `seller-bidder concentration`)
 - endpoint admin pentru suspendarea unei licitatii `RUNNING` cu motiv obligatoriu
 - listare notificari pentru userul curent
 - unread notifications count
@@ -219,6 +219,7 @@ Backend-ul suporta:
 - inchidere licitatie
 - inchidere automata a licitatiilor expirate
 - plasare bid
+- blocare consecutive self-bids atunci cand user-ul este deja highest bidder
 - anti-sniping cu extensie automata a duratei licitatiei
 - listare bids pentru o licitatie
 - salvare evenimente de domeniu in `outbox_events`
@@ -255,8 +256,10 @@ Frontend-ul suporta:
 - close auction din lista si din pagina de detalii
 - buy now din pagina de detalii pentru loturile `RUNNING` eligibile
 - plasare bid din UI
+- blocare bid form pentru owner si pentru userul care este deja in lead
 - creare licitatie cu pana la 5 imagini locale prin upload `multipart/form-data`
 - countdown reactiv pana la `endTime`
+- actualizare live a statusului la `AUCTION_STARTED`
 - extensie live a countdown-ului la `AUCTION_EXTENDED`
 - actualizare live a pretului si istoricului la `BID_PLACED`
 - dezactivare bid form la `AUCTION_CLOSED` sau la expirarea timpului
@@ -310,9 +313,11 @@ Aplicatia nu publica direct in broker in tranzactia principala. In schimb:
 
 Evenimentele importante pentru UI sunt trimise imediat si pe canal live:
 
+- `AUCTION_STARTED`
 - `BID_PLACED`
 - `AUCTION_EXTENDED`
 - `AUCTION_CLOSED`
+- `AUCTION_SUSPENDED`
 
 ### 5. Worker audit
 
@@ -632,12 +637,14 @@ Aplicatia:
 - adauga sau elimina licitatia din `auction_watchlist`
 - calculeaza `watchersCount`
 - expune `watchedByCurrentUser` in raspunsurile pentru licitatii
+- blocheaza watchlist-ul pentru loturile create de user-ul curent
 
 In frontend:
 
 - utilizatorul poate urmari sau opri urmarirea din marketplace si din pagina de detalii
 - exista pagina `My Watchlist`
 - UI afiseaza numarul de watchers pentru fiecare lot relevant
+- butonul `Watch` nu este afisat pentru propriile loturi
 
 ### 1e. Read notifications
 
@@ -676,6 +683,8 @@ Cand worker-ul creeaza o notificare eligibila pentru email:
   - `SKIPPED`
   - `FAILED`
 
+Pentru MVP, acest flux este configurat pentru SMTP local, deci email-urile apar in `MailHog`, nu in inbox-uri reale Gmail/Yahoo.
+
 ### 2. Start auction
 
 Clientul sau UI-ul apeleaza:
@@ -707,6 +716,8 @@ Aplicatia:
 - incarca licitatia
 - verifica sa fie `RUNNING`
 - verifica sa nu fie expirata
+- verifica sa nu fie lotul creatorului curent
+- verifica sa nu fie deja highest bidder pe lot
 - verifica suma minima acceptata: `currentPrice + minIncrement`
 - blocheaza licitatia cu `PESSIMISTIC_WRITE`
 - actualizeaza `currentPrice`
@@ -725,11 +736,13 @@ In frontend:
 
 - bid form calculeaza `nextMinimumBid = currentPrice + minIncrement`
 - formularul este activ doar daca licitatia este `RUNNING` si countdown-ul nu a expirat
+- formularul este dezactivat pentru owner si pentru userul care conduce deja licitatia
 - UI-ul valideaza local suma minima
 - la succes, formularul asteapta confirmarea live
+- la `AUCTION_STARTED`, UI-ul actualizeaza statusul local fara refresh
 - la `BID_PLACED`, UI-ul actualizeaza `currentPrice` si istoricul local
 - la `AUCTION_EXTENDED`, UI-ul actualizeaza `endTime` si countdown-ul
-- la `BID_PLACED`, `AUCTION_EXTENDED` si `AUCTION_CLOSED`, UI-ul afiseaza toast-uri contextuale
+- la `AUCTION_STARTED`, `BID_PLACED`, `AUCTION_EXTENDED`, `AUCTION_CLOSED` si `AUCTION_SUSPENDED`, UI-ul afiseaza toast-uri contextuale
 - la actiunile manuale `Start` si `Close`, UI-ul afiseaza toast-uri dedicate pentru confirmare rapida
 - panoul `Bid history` afiseaza bid-urile cu cel mai nou element sus
 - panoul `Live events` afiseaza cronologic invers evenimentele WebSocket receptionate
@@ -1018,9 +1031,11 @@ Audit-ul nu modifica starea licitatiilor. El este strict o persistenta a procesa
 
 In acest moment exista:
 
+- `AUCTION_STARTED`
 - `BID_PLACED`
 - `AUCTION_EXTENDED`
 - `AUCTION_CLOSED`
+- `AUCTION_SUSPENDED`
 
 Tipurile de notificari in-app suportate acum sunt:
 
@@ -1036,6 +1051,7 @@ Tipurile care trimit email in MVP sunt:
 - `AUCTION_WON`
 - `OUTBID`
 - `AUCTION_CLOSED`
+- `AUCTION_SUSPENDED`
 
 ## Endpoint-uri actuale
 
@@ -1137,9 +1153,11 @@ export interface AuctionRealtimeEvent<T = AuctionBusinessEvent> {
 
 Tipurile de evenimente folosite in UI sunt:
 
+- `AUCTION_STARTED`
 - `BID_PLACED`
 - `AUCTION_EXTENDED`
 - `AUCTION_CLOSED`
+- `AUCTION_SUSPENDED`
 
 ## Exemple de scenarii reale
 
