@@ -238,6 +238,78 @@ export class AuctionListPageComponent implements OnInit {
     return auction.status === 'ENDED' ? 'secondary' : 'warn';
   }
 
+  featuredPriceLabel(auction: Auction): string {
+    switch (auction.status) {
+      case 'ENDED':
+        return 'Final price';
+      case 'DRAFT':
+        return 'Opening bid';
+      case 'SUSPENDED':
+      case 'CANCELLED':
+        return 'Latest bid';
+      default:
+        return 'Current bid';
+    }
+  }
+
+  featuredPriceValue(auction: Auction): number {
+    if (auction.status === 'ENDED') {
+      return auction.finalPrice ?? auction.currentPrice;
+    }
+
+    return auction.currentPrice;
+  }
+
+  featuredScheduleLabel(auction: Auction): string {
+    switch (auction.status) {
+      case 'DRAFT':
+        return 'Starts';
+      case 'ENDED':
+        return 'Closed';
+      case 'SUSPENDED':
+        return 'Suspended';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return 'Ends';
+    }
+  }
+
+  featuredScheduleValue(auction: Auction): string | null {
+    switch (auction.status) {
+      case 'DRAFT':
+        return auction.startTime;
+      case 'ENDED':
+        return auction.closedAt ?? auction.endTime;
+      case 'SUSPENDED':
+        return auction.suspendedAt;
+      case 'CANCELLED':
+        return auction.closedAt ?? auction.endTime;
+      default:
+        return auction.endTime;
+    }
+  }
+
+  featuredPriceNote(auction: Auction): string | null {
+    if (auction.status === 'RUNNING') {
+      return null;
+    }
+
+    if (auction.status === 'DRAFT' && auction.startTime) {
+      return 'Scheduled lot ready for opening';
+    }
+
+    if (auction.status === 'ENDED') {
+      return auction.reserveMet === true ? 'Auction closed with reserve met' : 'Auction closed';
+    }
+
+    return null;
+  }
+
+  showFeaturedMinIncrement(auction: Auction): boolean {
+    return auction.status === 'RUNNING';
+  }
+
   endTimeTone(auction: Auction): 'critical' | 'warning' | 'neutral' {
     if (!auction.endTime || auction.status !== 'RUNNING') {
       return 'neutral';

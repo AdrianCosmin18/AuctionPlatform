@@ -45,15 +45,22 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem(AuthService.TOKEN_KEY);
-    localStorage.removeItem(AuthService.USER_KEY);
-    this.currentUser$.next(null);
-    this.isAuthenticated$.next(false);
+    this.clearSession();
     void this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
-    return this.readStoredToken();
+    const token = this.readStoredToken();
+    if (!token) {
+      return null;
+    }
+
+    if (this.isTokenExpired(token)) {
+      this.clearSession();
+      return null;
+    }
+
+    return token;
   }
 
   getCurrentUser(): AuthenticatedUser | null {
@@ -90,6 +97,13 @@ export class AuthService {
     this.isAuthenticated$.next(true);
   }
 
+  private clearSession(): void {
+    localStorage.removeItem(AuthService.TOKEN_KEY);
+    localStorage.removeItem(AuthService.USER_KEY);
+    this.currentUser$.next(null);
+    this.isAuthenticated$.next(false);
+  }
+
   private readStoredToken(): string | null {
     return localStorage.getItem(AuthService.TOKEN_KEY);
   }
@@ -106,5 +120,35 @@ export class AuthService {
       localStorage.removeItem(AuthService.USER_KEY);
       return null;
     }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = this.decodeTokenPayload(token);
+      const expClaim = payload['exp'];
+      const expiration = typeof expClaim === 'number' ? expClaim : null;
+
+      if (!expiration) {
+        return true;
+      }
+
+      return expiration * 1000 <= Date.now();
+    } catch {
+      return true;
+    }
+  }
+
+  private decodeTokenPayload(token: string): Record<string, unknown> {
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      throw new Error('Invalid JWT structure');
+    }
+
+    const normalized = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(parts[1].length / 4) * 4, '=');
+
+    return JSON.parse(atob(normalized)) as Record<string, unknown>;
   }
 }
