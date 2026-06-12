@@ -1,0 +1,92 @@
+<section class="profile-page">
+  <div class="profile-hero">
+    <div>
+      <div class="section-kicker">Account</div>
+      <h1 class="page-title mb-2">My Profile</h1>
+      <p class="page-subtitle mb-0">
+        Manage your contact details, account identity, and password for marketplace activity.
+      </p>
+    </div>
+  </div>
+
+  <div class="profile-layout">
+    <section class="profile-panel">
+      <p-card>
+        <ng-template pTemplate="header">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Profile Information</h2>
+              <p class="panel-subtitle">Identity and contact data used across your account.</p>
+            </div>
+          </div>
+        </ng-template>
+
+        @if (profileError) {
+          <p-message severity="error" [text]="profileError" styleClass="w-100 mb-3" />
+        }
+
+        @if (profileSuccess) {
+          <p-message severity="success" [text]="profileSuccess" styleClass="w-100 mb-3" />
+        }
+
+        <form class="profile-form" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+          <div class="profile-grid">
+            <div class="form-field form-field--full">
+              <label class="form-label" for="profileEmail">Email</label>
+              <input id="profileEmail" type="email" pInputText formControlName="email" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="firstName">First name</label>
+              <input id="firstName" type="text" pInputText formControlName="firstName" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="lastName">Last name</label>
+              <input id="lastName" type="text" pInputText formControlName="lastName" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="phone">Phone</label>
+              <input id="phone" type="text" pInputText formControlName="phone" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="country">Country</label>
+              <input id="country" type="text" pInputText formControlName="country" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="city">City</label>
+              <input id="city" type="text" pInputText formControlName="city" class="w-100" />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="postalCode">Postal code</label>
+              <input id="postalCode" type="text" pInputText formControlName="postalCode" class="w-100" />
+            </div>
+
+            <div class="form-field form-field--full">
+              <label class="form-label" for="addressLine1">Address line 1</label>
+              <input id="addressLine1" type="text" pInputText formControlName="addressLine1" class="w-100" />
+            </div>
+
+            <div class="form-field form-field--full">
+              <label class="form-label" for="addressLine2">Address line 2</label>
+              <input id="addressLine2" type="text" pInputText formControlName="addressLine2" class="w-100" />
+            </div>
+          </div>
+
+          <div class="panel-actions">
+            <p-button
+              type="submit"
+              label="Save Profile"
+              icon="pi pi-save"
+              [loading]="profileSaving || loading"
+              [disabled]="loading || profileForm.invalid || !hasProfileChanges()" />
+          </div>
+        </form>
+      </p-card>
+    </section>
+  </div>
+</section>
