@@ -68,6 +68,21 @@ export class AuthService {
     return this.currentUser$.value?.role === 'ADMIN';
   }
 
+  updateCurrentUserNames(firstName: string | null, lastName: string | null): void {
+    const currentUser = this.currentUser$.value;
+    if (!currentUser) {
+      return;
+    }
+
+    const updatedUser: AuthenticatedUser = {
+      ...currentUser,
+      firstName,
+      lastName
+    };
+    localStorage.setItem(AuthService.USER_KEY, JSON.stringify(updatedUser));
+    this.currentUser$.next(updatedUser);
+  }
+
   private persistSession(response: AuthResponse): void {
     localStorage.setItem(AuthService.TOKEN_KEY, response.accessToken);
     localStorage.setItem(AuthService.USER_KEY, JSON.stringify(response.user));

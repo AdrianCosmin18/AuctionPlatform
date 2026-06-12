@@ -27,7 +27,7 @@
               <a pButton routerLink="/dashboard" icon="pi pi-chart-bar" label="Dashboard" severity="secondary" [text]="true"></a>
               <a pButton routerLink="/fraud-signals" icon="pi pi-shield" label="Fraud Signals" severity="secondary" [text]="true"></a>
             }
-            <a pButton routerLink="/my-auctions" icon="pi pi-briefcase" label="My Area" severity="secondary" [text]="true"></a>
+            <a pButton routerLink="/my-auctions" icon="pi pi-briefcase" label="My Activity" severity="secondary" [text]="true"></a>
             <a pButton routerLink="/notifications" severity="secondary" [text]="true" styleClass="notifications-link">
               <span class="notifications-link__content">
                 <i class="pi pi-bell"></i>
@@ -40,8 +40,29 @@
               </span>
             </a>
             <a pButton routerLink="/auctions/new" icon="pi pi-plus" label="List an Item" severity="secondary" [outlined]="true"></a>
-            <span class="user-chip">{{ currentUser.email }}</span>
-            <p-button icon="pi pi-sign-out" label="Logout" severity="secondary" [outlined]="true" (onClick)="logout()" />
+            <div class="user-menu">
+              <button
+                type="button"
+                pButton
+                [text]="true"
+                [rounded]="true"
+                severity="secondary"
+                class="user-menu__trigger"
+                (click)="userMenu.toggle($event)">
+                <span class="user-menu__trigger-content">
+                  <p-avatar
+                    [label]="avatarLabel(currentUser)"
+                    shape="circle"
+                    styleClass="user-menu__avatar" />
+                  <span class="user-menu__meta">
+                    <span class="user-menu__name">{{ displayName(currentUser) }}</span>
+                    <span class="user-menu__email">{{ currentUser.email }}</span>
+                  </span>
+                  <i class="pi pi-angle-down user-menu__chevron"></i>
+                </span>
+              </button>
+              <p-menu #userMenu [model]="userMenuItems(currentUser)" [popup]="true" appendTo="body"></p-menu>
+            </div>
           } @else {
             <a pButton routerLink="/login" icon="pi pi-sign-in" label="Sign in" severity="contrast"></a>
             <a pButton routerLink="/register" icon="pi pi-user-plus" label="Register" severity="secondary" [outlined]="true"></a>
@@ -50,6 +71,160 @@
       </ng-template>
     </p-toolbar>
   </header>
+
+  <p-dialog
+    header="Profile Information"
+    [(visible)]="profileDialogVisible"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '52rem', maxWidth: 'calc(100vw - 2rem)' }"
+    (onHide)="closeProfileDialog()">
+    @if (profileError) {
+      <p-message severity="error" [text]="profileError" styleClass="w-100 mb-3" />
+    }
+
+    @if (profileSuccess) {
+      <p-message severity="success" [text]="profileSuccess" styleClass="w-100 mb-3" />
+    }
+
+    <form class="profile-dialog-form" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+      <div class="profile-dialog-grid">
+        <div class="form-field form-field--full">
+          <label class="form-label" for="dialogProfileEmail">Email</label>
+          <input id="dialogProfileEmail" type="email" pInputText formControlName="email" class="w-100" />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="dialogFirstName">First name</label>
+          <input id="dialogFirstName" type="text" pInputText formControlName="firstName" class="w-100" />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="dialogLastName">Last name</label>
+          <input id="dialogLastName" type="text" pInputText formControlName="lastName" class="w-100" />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="dialogPhone">Phone</label>
+          <input id="dialogPhone" type="text" pInputText formControlName="phone" class="w-100" />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="dialogCountry">Country</label>
+          <input id="dialogCountry" type="text" pInputText formControlName="country" class="w-100" />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="dialogCity">City</label>
+          <input id="dialogCity" type="text" pInputText formControlName="city" class="w-100" />
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="dialogPostalCode">Postal code</label>
+          <input id="dialogPostalCode" type="text" pInputText formControlName="postalCode" class="w-100" />
+        </div>
+
+        <div class="form-field form-field--full">
+          <label class="form-label" for="dialogAddressLine1">Address line 1</label>
+          <input id="dialogAddressLine1" type="text" pInputText formControlName="addressLine1" class="w-100" />
+        </div>
+
+        <div class="form-field form-field--full">
+          <label class="form-label" for="dialogAddressLine2">Address line 2</label>
+          <input id="dialogAddressLine2" type="text" pInputText formControlName="addressLine2" class="w-100" />
+        </div>
+      </div>
+
+      <p-divider></p-divider>
+
+      <div class="profile-dialog-actions">
+        <p-button
+          type="button"
+          label="Close"
+          severity="secondary"
+          [text]="true"
+          (onClick)="closeProfileDialog()" />
+        <p-button
+          type="submit"
+          label="Save Profile"
+          icon="pi pi-save"
+          [loading]="profileSaving || profileLoading"
+          [disabled]="profileLoading || profileForm.invalid || !hasProfileChanges()" />
+      </div>
+    </form>
+  </p-dialog>
+
+  <p-dialog
+    header="Change Password"
+    [(visible)]="passwordDialogVisible"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '28rem', maxWidth: 'calc(100vw - 2rem)' }"
+    (onHide)="closePasswordDialog()">
+    @if (passwordError) {
+      <p-message severity="error" [text]="passwordError" styleClass="w-100 mb-3" />
+    }
+
+    @if (passwordSuccess) {
+      <p-message severity="success" [text]="passwordSuccess" styleClass="w-100 mb-3" />
+    }
+
+    <form class="password-dialog-form" [formGroup]="passwordForm" (ngSubmit)="submitPasswordChange()">
+      <div class="form-field">
+        <label class="form-label" for="dialogCurrentPassword">Current password</label>
+        <p-password
+          inputId="dialogCurrentPassword"
+          formControlName="currentPassword"
+          [feedback]="false"
+          [toggleMask]="true"
+          styleClass="w-100"
+          inputStyleClass="w-100" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="dialogNewPassword">New password</label>
+        <p-password
+          inputId="dialogNewPassword"
+          formControlName="newPassword"
+          [feedback]="false"
+          [toggleMask]="true"
+          styleClass="w-100"
+          inputStyleClass="w-100" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="dialogConfirmPassword">Confirm new password</label>
+        <p-password
+          inputId="dialogConfirmPassword"
+          formControlName="confirmPassword"
+          [feedback]="false"
+          [toggleMask]="true"
+          styleClass="w-100"
+          inputStyleClass="w-100" />
+        @if (passwordForm.controls.confirmPassword.touched && passwordMismatch()) {
+          <small class="field-error">Passwords must match.</small>
+        }
+      </div>
+
+      <p-divider></p-divider>
+
+      <div class="password-dialog-actions">
+        <p-button
+          type="button"
+          label="Cancel"
+          severity="secondary"
+          [text]="true"
+          (onClick)="closePasswordDialog()" />
+        <p-button
+          type="submit"
+          label="Update Password"
+          icon="pi pi-lock"
+          [loading]="passwordSaving" />
+      </div>
+    </form>
+  </p-dialog>
 
   <main class="app-shell__content container-fluid">
     <router-outlet />

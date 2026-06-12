@@ -1,21 +1,9 @@
 <section class="page-section">
-  <section class="my-area-hero mb-4">
-    <div>
-      <a routerLink="/auctions" class="back-link">
-        <i class="pi pi-arrow-left"></i>
-        <span>Back to marketplace</span>
-      </a>
-      <div class="section-kicker">Seller workspace</div>
-      <h1 class="page-title mb-1">My Auctions</h1>
-      <p class="page-subtitle mb-0">Manage draft lots, launch live auctions, and close active listings.</p>
-    </div>
-
-    <div class="my-area-nav">
-      <a pButton routerLink="/my-auctions" label="My Auctions" severity="contrast"></a>
-      <a pButton routerLink="/my-bids" label="My Bids" severity="secondary" [text]="true"></a>
-      <a pButton routerLink="/my-watchlist" label="My Watchlist" severity="secondary" [text]="true"></a>
-    </div>
-  </section>
+  <app-my-activity-header
+    sectionKicker="Seller workspace"
+    title="My Auctions"
+    subtitle="Manage draft lots, launch live auctions, and close active listings."
+    activeTab="auctions" />
 
   @if (errorMessage) {
     <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />

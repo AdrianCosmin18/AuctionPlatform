@@ -1,0 +1,35 @@
+<section class="my-activity-hero mb-4">
+  <div>
+    <a routerLink="/auctions" class="back-link">
+      <i class="pi pi-arrow-left"></i>
+      <span>Back to marketplace</span>
+    </a>
+    <div class="section-kicker">{{ sectionKicker }}</div>
+    <h1 class="page-title mb-1">{{ title }}</h1>
+    <p class="page-subtitle mb-0">{{ subtitle }}</p>
+  </div>
+
+  <div class="my-activity-nav">
+    <a
+      pButton
+      routerLink="/my-auctions"
+      label="My Auctions"
+      [severity]="isActive('auctions') ? 'contrast' : 'secondary'"
+      [text]="!isActive('auctions')">
+    </a>
+    <a
+      pButton
+      routerLink="/my-bids"
+      label="My Bids"
+      [severity]="isActive('bids') ? 'contrast' : 'secondary'"
+      [text]="!isActive('bids')">
+    </a>
+    <a
+      pButton
+      routerLink="/my-watchlist"
+      label="My Watchlist"
+      [severity]="isActive('watchlist') ? 'contrast' : 'secondary'"
+      [text]="!isActive('watchlist')">
+    </a>
+  </div>
+</section>

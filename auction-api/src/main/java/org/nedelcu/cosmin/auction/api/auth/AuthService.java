@@ -10,6 +10,7 @@ import org.nedelcu.cosmin.auction.api.common.exception.BusinessException;
 import org.nedelcu.cosmin.auction.api.user.UserEntity;
 import org.nedelcu.cosmin.auction.api.user.UserRepository;
 import org.nedelcu.cosmin.auction.api.user.UserRole;
+import org.nedelcu.cosmin.auction.api.user.profile.UserProfileService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +25,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final CurrentUserService currentUserService;
+    private final UserProfileService userProfileService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -56,7 +58,7 @@ public class AuthService {
 
     public AuthenticatedUserResponse me() {
         CurrentUserPrincipal principal = currentUserService.getCurrentUser();
-        return new AuthenticatedUserResponse(principal.getId(), principal.getEmail(), UserRole.valueOf(principal.getRole()));
+        return authenticatedUserResponse(principal);
     }
 
     private AuthResponse toAuthResponse(CurrentUserPrincipal principal) {
@@ -64,7 +66,18 @@ public class AuthService {
                 jwtService.generateToken(principal),
                 "Bearer",
                 jwtService.getExpirationMs(),
-                new AuthenticatedUserResponse(principal.getId(), principal.getEmail(), UserRole.valueOf(principal.getRole()))
+                authenticatedUserResponse(principal)
+        );
+    }
+
+    private AuthenticatedUserResponse authenticatedUserResponse(CurrentUserPrincipal principal) {
+        UserProfileService.UserProfileSummary summary = userProfileService.getProfileSummary(principal.getId());
+        return new AuthenticatedUserResponse(
+                principal.getId(),
+                principal.getEmail(),
+                UserRole.valueOf(principal.getRole()),
+                summary.firstName(),
+                summary.lastName()
         );
     }
 }

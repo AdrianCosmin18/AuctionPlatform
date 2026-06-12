@@ -13,11 +13,12 @@ import { environment } from '../../../environments/environment';
 import { Auction } from '../../core/models/auction.model';
 import { AuctionStatus } from '../../core/models/auction-status.type';
 import { AuctionApiService } from '../../core/services/auction-api.service';
+import { MyActivityHeaderComponent } from '../my-activity/my-activity-header.component';
 
 @Component({
   selector: 'app-my-auctions-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, CardModule, TagModule, ChipModule, ButtonModule, MessageModule, ProgressSpinnerModule, CurrencyPipe, DatePipe],
+  imports: [CommonModule, RouterLink, CardModule, TagModule, ChipModule, ButtonModule, MessageModule, ProgressSpinnerModule, CurrencyPipe, DatePipe, MyActivityHeaderComponent],
   templateUrl: './my-auctions.page.html',
   styleUrl: './my-auctions.page.scss'
 })

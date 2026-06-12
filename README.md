@@ -72,6 +72,7 @@ Responsabilitati principale:
 - afiseaza pagina de detalii pentru o licitatie
 - permite adaugarea unei licitatii in watchlist si gestionarea `My Watchlist`
 - ofera zona `My Area` cu pagini separate pentru `My Auctions`, `My Bids` si `My Watchlist`
+- ofera pagina `My Profile` pentru date de contact si schimbare parola
 - suporta `reserve price` optional si expune starea `reserve met / not met`
 - suporta `buy now price` optional si actiune de cumparare imediata din pagina de detalii
 - afiseaza dashboard operational cu KPI-uri si breakdown-uri pe categorii
@@ -141,6 +142,61 @@ Pentru servere SMTPS pe port `465`, setezi de regula:
 $env:MAIL_PORT="465"
 $env:MAIL_SMTP_STARTTLS_ENABLE="false"
 $env:MAIL_SMTP_SSL_ENABLE="true"
+```
+
+Pentru validare imediata a configuratiei SMTP la startup, poti activa:
+
+```powershell
+$env:MAIL_TEST_CONNECTION="true"
+$env:APP_MAIL_STARTUP_TEST_RECIPIENT="destinatar@example.com"
+```
+
+Optional, daca vrei ca worker-ul sa nu porneasca atunci cand SMTP-ul real nu este configurat corect:
+
+```powershell
+$env:APP_MAIL_STARTUP_TEST_REQUIRED="true"
+```
+
+Pentru troubleshooting detaliat de protocol SMTP:
+
+```powershell
+$env:MAIL_DEBUG="true"
+```
+
+Exemplu Gmail cu `App Password`:
+
+```powershell
+$env:MAIL_HOST="smtp.gmail.com"
+$env:MAIL_PORT="587"
+$env:MAIL_USERNAME="your-account@gmail.com"
+$env:MAIL_PASSWORD="your-16-digit-app-password"
+$env:MAIL_SMTP_AUTH="true"
+$env:MAIL_SMTP_STARTTLS_ENABLE="true"
+$env:MAIL_SMTP_STARTTLS_REQUIRED="true"
+$env:MAIL_SMTP_SSL_ENABLE="false"
+$env:MAIL_SMTP_SSL_TRUST="smtp.gmail.com"
+$env:MAIL_TEST_CONNECTION="true"
+$env:APP_MAIL_FROM="your-account@gmail.com"
+$env:APP_MAIL_STARTUP_TEST_RECIPIENT="recipient@example.com"
+mvn -pl auction-worker spring-boot:run
+```
+
+Exemplu Yahoo cu `App Password`:
+
+```powershell
+$env:MAIL_HOST="smtp.mail.yahoo.com"
+$env:MAIL_PORT="587"
+$env:MAIL_USERNAME="your-account@yahoo.com"
+$env:MAIL_PASSWORD="your-app-password"
+$env:MAIL_SMTP_AUTH="true"
+$env:MAIL_SMTP_STARTTLS_ENABLE="true"
+$env:MAIL_SMTP_STARTTLS_REQUIRED="true"
+$env:MAIL_SMTP_SSL_ENABLE="false"
+$env:MAIL_SMTP_SSL_TRUST="smtp.mail.yahoo.com"
+$env:MAIL_TEST_CONNECTION="true"
+$env:APP_MAIL_FROM="your-account@yahoo.com"
+$env:APP_MAIL_STARTUP_TEST_RECIPIENT="recipient@example.com"
+mvn -pl auction-worker spring-boot:run
 ```
 
 4. Porneste UI-ul:
@@ -222,6 +278,8 @@ In `auction-ui`, zonele importante sunt:
 Backend-ul suporta:
 
 - register / login cu JWT
+- pagina de profil pentru userul autentificat, cu update pentru datele de contact
+- schimbare parola din contul autentificat
 - roluri `USER` si `ADMIN`
 - creare licitatie
 - editare licitatie `DRAFT`

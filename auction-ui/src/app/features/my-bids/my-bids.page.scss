@@ -1,27 +1,3 @@
-.my-area-hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.my-area-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  color: var(--p-primary-color);
-  text-decoration: none;
-  font-weight: 600;
-}
-
 .loading-state,
 .empty-state {
   min-height: 18rem;
@@ -38,8 +14,9 @@
 
 .bid-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(27rem, 1fr));
+  gap: 1.35rem;
+  align-items: start;
 }
 
 .bid-card {
@@ -99,12 +76,18 @@
 .bid-card__meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 0.9rem 1rem;
 }
 
 .meta-label {
   font-size: 0.78rem;
   color: #64748b;
+}
+
+@media (min-width: 1800px) {
+  .bid-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 767.98px) {

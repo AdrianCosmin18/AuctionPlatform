@@ -1,15 +1,9 @@
 <section class="page-section">
-  <section class="watchlist-hero mb-4">
-    <div>
-      <a routerLink="/auctions" class="back-link">
-        <i class="pi pi-arrow-left"></i>
-        <span>Back to marketplace</span>
-      </a>
-      <div class="section-kicker">Tracked lots</div>
-      <h1 class="page-title mb-1">My Watchlist</h1>
-      <p class="page-subtitle mb-0">Monitor the lots you want to follow without placing a bid yet.</p>
-    </div>
-  </section>
+  <app-my-activity-header
+    sectionKicker="Tracked lots"
+    title="My Watchlist"
+    subtitle="Monitor the lots you want to follow without placing a bid yet."
+    activeTab="watchlist" />
 
   @if (errorMessage) {
     <p-message severity="error" [text]="errorMessage" styleClass="w-100 mb-3" />

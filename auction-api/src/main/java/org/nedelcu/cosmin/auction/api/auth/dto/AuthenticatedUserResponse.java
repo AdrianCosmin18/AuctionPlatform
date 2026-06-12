@@ -5,6 +5,8 @@ import org.nedelcu.cosmin.auction.api.user.UserRole;
 public record AuthenticatedUserResponse(
         Long id,
         String email,
-        UserRole role
+        UserRole role,
+        String firstName,
+        String lastName
 ) {
 }
