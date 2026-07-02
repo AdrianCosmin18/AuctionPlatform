@@ -7,6 +7,7 @@ public record BidPlacedEvent(
         Long auctionId,
         Long bidId,
         Long bidderId,
+        String bidderDisplayName,
         BigDecimal amount,
         BigDecimal currentPrice,
         OffsetDateTime occurredAt

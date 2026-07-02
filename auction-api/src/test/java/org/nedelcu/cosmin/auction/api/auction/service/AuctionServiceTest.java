@@ -34,6 +34,7 @@ import org.nedelcu.cosmin.auction.api.auction.repository.AuctionWatchlistReposit
 import org.nedelcu.cosmin.auction.api.auction.repository.BidRepository;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
+import org.nedelcu.cosmin.auction.api.user.profile.UserProfileRepository;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
@@ -65,6 +66,9 @@ class AuctionServiceTest {
 
     @Mock
     private AuctionWatchlistRepository auctionWatchlistRepository;
+
+    @Mock
+    private UserProfileRepository userProfileRepository;
 
     @InjectMocks
     private AuctionService auctionService;
@@ -432,6 +436,7 @@ class AuctionServiceTest {
         when(auctionRepository.findByIdForUpdate(auctionId)).thenReturn(Optional.of(auction));
         when(auctionRepository.saveAndFlush(any(AuctionEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(bidRepository.save(any(BidEntity.class))).thenReturn(savedBid);
+        when(userProfileRepository.findByUserIdIn(List.of(200L))).thenReturn(List.of());
 
         BidResponse response = auctionService.placeBid(
                 auctionId,
@@ -440,6 +445,7 @@ class AuctionServiceTest {
         );
 
         assertThat(response.id()).isEqualTo(55L);
+        assertThat(response.bidderDisplayName()).isEqualTo("Bidder #200");
         assertThat(response.auctionExtended()).isTrue();
         assertThat(response.newEndTime()).isEqualTo(initialEndTime.plusSeconds(30));
         assertThat(auction.getCurrentPrice()).isEqualByComparingTo("125.00");
@@ -456,6 +462,7 @@ class AuctionServiceTest {
         AuctionRealtimeEvent<?> bidRealtimeEvent = (AuctionRealtimeEvent<?>) realtimePayloadCaptor.getAllValues().get(0);
         assertThat(bidRealtimeEvent.type()).isEqualTo(AuctionEventType.BID_PLACED.name());
         assertThat(bidRealtimeEvent.payload()).isInstanceOf(BidPlacedEvent.class);
+        assertThat(((BidPlacedEvent) bidRealtimeEvent.payload()).bidderDisplayName()).isEqualTo("Bidder #200");
 
         AuctionRealtimeEvent<?> extendedRealtimeEvent = (AuctionRealtimeEvent<?>) realtimePayloadCaptor.getAllValues().get(1);
         assertThat(extendedRealtimeEvent.type()).isEqualTo(AuctionEventType.AUCTION_EXTENDED.name());

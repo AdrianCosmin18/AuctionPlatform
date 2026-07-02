@@ -32,6 +32,8 @@ import org.nedelcu.cosmin.auction.api.common.exception.ResourceNotFoundException
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxAggregateType;
 import org.nedelcu.cosmin.auction.api.common.outbox.OutboxService;
 import org.nedelcu.cosmin.auction.api.common.websocket.AuctionEventBroadcaster;
+import org.nedelcu.cosmin.auction.api.user.profile.UserProfileEntity;
+import org.nedelcu.cosmin.auction.api.user.profile.UserProfileRepository;
 import org.nedelcu.cosmin.auction.shared.event.AuctionClosedEvent;
 import org.nedelcu.cosmin.auction.shared.event.AuctionCloseReason;
 import org.nedelcu.cosmin.auction.shared.event.AuctionEventType;
@@ -54,6 +56,7 @@ public class AuctionService {
     private final OutboxService outboxService;
     private final AuctionEventBroadcaster auctionEventBroadcaster;
     private final AuctionMediaStorageService auctionMediaStorageService;
+    private final UserProfileRepository userProfileRepository;
 
     public List<AuctionResponse> findAll() {
         return findAll(null);
@@ -590,11 +593,13 @@ public class AuctionService {
 
         AuctionEntity savedAuction = auctionRepository.saveAndFlush(auction);
         BidEntity savedBid = bidRepository.save(bid);
+        String bidderDisplayName = resolveBidderDisplayName(savedBid.getBidderId(), loadBidderDisplayNames(List.of(savedBid.getBidderId())));
 
         BidPlacedEvent bidPlacedEvent = new BidPlacedEvent(
                 auctionId,
                 savedBid.getId(),
                 savedBid.getBidderId(),
+                bidderDisplayName,
                 savedBid.getAmount(),
                 savedAuction.getCurrentPrice(),
                 now
@@ -614,6 +619,7 @@ public class AuctionService {
                 savedBid.getId(),
                 savedBid.getAuctionId(),
                 savedBid.getBidderId(),
+                bidderDisplayName,
                 savedBid.getAmount(),
                 savedBid.getCreatedAt(),
                 auctionExtended,
@@ -626,8 +632,17 @@ public class AuctionService {
             throw new ResourceNotFoundException("Auction not found: " + auctionId);
         }
 
-        return bidRepository.findByAuctionIdOrderByCreatedAtDesc(auctionId).stream()
-                .map(this::toBidResponse)
+        List<BidEntity> bids = bidRepository.findByAuctionIdOrderByCreatedAtDesc(auctionId);
+        Map<Long, String> bidderDisplayNames = loadBidderDisplayNames(
+                bids.stream()
+                        .map(BidEntity::getBidderId)
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList()
+        );
+
+        return bids.stream()
+                .map(bid -> toBidResponse(bid, bidderDisplayNames))
                 .toList();
     }
 
@@ -684,16 +699,56 @@ public class AuctionService {
         );
     }
 
-    private BidResponse toBidResponse(BidEntity bid) {
+    private BidResponse toBidResponse(BidEntity bid, Map<Long, String> bidderDisplayNames) {
         return new BidResponse(
                 bid.getId(),
                 bid.getAuctionId(),
                 bid.getBidderId(),
+                resolveBidderDisplayName(bid.getBidderId(), bidderDisplayNames),
                 bid.getAmount(),
                 bid.getCreatedAt(),
                 false,
                 null
         );
+    }
+
+    private Map<Long, String> loadBidderDisplayNames(List<Long> bidderIds) {
+        if (bidderIds == null || bidderIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Long, String> bidderDisplayNames = new LinkedHashMap<>();
+        for (UserProfileEntity profile : userProfileRepository.findByUserIdIn(bidderIds)) {
+            String displayName = formatBidderDisplayName(profile);
+            if (displayName != null) {
+                bidderDisplayNames.put(profile.getUserId(), displayName);
+            }
+        }
+
+        return bidderDisplayNames;
+    }
+
+    private String resolveBidderDisplayName(Long bidderId, Map<Long, String> bidderDisplayNames) {
+        if (bidderId == null) {
+            return "Unknown bidder";
+        }
+
+        return bidderDisplayNames.getOrDefault(bidderId, "Bidder #" + bidderId);
+    }
+
+    private String formatBidderDisplayName(UserProfileEntity profile) {
+        String firstName = trimToNull(profile.getFirstName());
+        String lastName = trimToNull(profile.getLastName());
+
+        if (firstName != null && lastName != null) {
+            return firstName + " " + lastName;
+        }
+
+        if (firstName != null) {
+            return firstName;
+        }
+
+        return lastName;
     }
 
     private boolean shouldExtendAuction(AuctionEntity auction, OffsetDateTime now) {

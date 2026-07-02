@@ -205,7 +205,7 @@
         </ng-template>
         <ng-template pTemplate="body" let-bid>
           <tr>
-            <td>#{{ bid.bidderId }}</td>
+            <td>{{ bid.bidderDisplayName }}</td>
             <td>{{ bid.amount | currency: 'EUR' : 'symbol' : '1.2-2' }}</td>
             <td>{{ bid.createdAt | date: 'medium' }}</td>
             <td>

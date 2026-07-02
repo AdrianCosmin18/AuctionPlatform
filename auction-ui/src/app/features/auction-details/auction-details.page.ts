@@ -121,7 +121,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
       remainingTime,
       bidCount: bids.length,
       nextMinimumBid: auction ? Number(auction.currentPrice) + Number(auction.minIncrement) : null,
-      lastBidderId: bids[0]?.bidderId ?? null,
+      lastBidderDisplayName: bids[0]?.bidderDisplayName || null,
       isOwner: !!auction && auction.createdBy === this.currentUserId,
       isLeadingBidder: bids[0]?.bidderId === this.currentUserId,
       canPlaceBid: !!auction
@@ -509,6 +509,7 @@ export class AuctionDetailsPageComponent implements OnInit, OnDestroy {
           id: payload.bidId,
           auctionId: payload.auctionId,
           bidderId: payload.bidderId,
+          bidderDisplayName: payload.bidderDisplayName,
           amount: payload.amount,
           createdAt: event.occurredAt,
           auctionExtended: false,

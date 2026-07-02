@@ -9,6 +9,7 @@ export interface BidPlacedEvent {
   auctionId: number;
   bidId: number;
   bidderId: number;
+  bidderDisplayName: string;
   amount: number;
   currentPrice: number;
   occurredAt: string;
